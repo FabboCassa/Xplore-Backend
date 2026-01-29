@@ -1,24 +1,32 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2">
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Xplore.Application\Xplore.Application.csproj" />
-    <ProjectReference Include="..\Xplore.Infrastructure\Xplore.Infrastructure.csproj" />
-    <ProjectReference Include="..\Xplore.Contracts\Xplore.Contracts.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Xplore.Application\Xplore.Application.csproj" />
+		<ProjectReference Include="..\Xplore.Infrastructure\Xplore.Infrastructure.csproj" />
+		<ProjectReference Include="..\Xplore.Contracts\Xplore.Contracts.csproj" />
+		<ProjectReference Include="..\Xplore.ServiceDefaults\Xplore.ServiceDefaults.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.1.0" />
+		<PackageReference Include="MassTransit" Version="8.3.0" />
+		<PackageReference Include="MassTransit.RabbitMQ" Version="8.3.0" />
+		<PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+	</ItemGroup>
 
 </Project>

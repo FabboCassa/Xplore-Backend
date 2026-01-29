@@ -1,20 +1,52 @@
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Xplore.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- 1. Aggiungi il Database (PostgreSQL) ---
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+// --- Aspire ServiceDefaults (OpenTelemetry, Health Checks, Service Discovery) ---
+builder.AddServiceDefaults();
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(connectionString));
-// ---------------------------------------------
+// --- Database (PostgreSQL via Aspire) ---
+builder.AddNpgsqlDbContext<ApplicationDbContext>("xploredb");
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// --- MassTransit with RabbitMQ (uses Aspire connection string) ---
+builder.Services.AddMassTransit(x =>
+{
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        var connectionString = builder.Configuration.GetConnectionString("messaging");
+        if (!string.IsNullOrEmpty(connectionString))
+        {
+            cfg.Host(new Uri(connectionString));
+        }
+        else
+        {
+            cfg.Host("localhost", "/", h =>
+            {
+                h.Username("guest");
+                h.Password("guest");
+            });
+        }
+    });
+});
+
 var app = builder.Build();
+
+// --- Apply EF Core Migrations in Development ---
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await db.Database.MigrateAsync();
+}
+
+// --- Aspire default endpoints (health checks) ---
+app.MapDefaultEndpoints();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

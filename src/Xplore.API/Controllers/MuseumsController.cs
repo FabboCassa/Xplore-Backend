@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using MassTransit;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Xplore.Contracts; 
 using Xplore.Domain.Entities;
 using Xplore.Infrastructure.Persistence;
 
@@ -10,11 +12,13 @@ namespace Xplore.API.Controllers;
 public class MuseumsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly IPublishEndpoint _publishEndpoint;
 
     // Iniettiamo il DbContext che abbiamo configurato prima
-    public MuseumsController(ApplicationDbContext context)
+    public MuseumsController(ApplicationDbContext context, IPublishEndpoint publishEndpoint)
     {
         _context = context;
+        _publishEndpoint = publishEndpoint;
     }
 
     // GET: api/museums
@@ -34,6 +38,8 @@ public class MuseumsController : ControllerBase
 
         // 2. Salva nel DB vero (Commit)
         await _context.SaveChangesAsync();
+        //pubblichiamo evento su rabbitmq
+        await _publishEndpoint.Publish(new MuseumCreatedEvent(museum.Id, museum.Name));
 
         return CreatedAtAction(nameof(GetAll), new { id = museum.Id }, museum);
     }
