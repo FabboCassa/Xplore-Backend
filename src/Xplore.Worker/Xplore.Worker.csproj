@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-Xplore.Worker-4ab36e5f-c1b4-441f-a34b-2a34736402ce</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Xplore.Application\Xplore.Application.csproj" />
+    <ProjectReference Include="..\Xplore.Infrastructure\Xplore.Infrastructure.csproj" />
+    <ProjectReference Include="..\Xplore.Contracts\Xplore.Contracts.csproj" />
+  </ItemGroup>
+</Project>
