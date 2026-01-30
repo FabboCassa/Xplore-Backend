@@ -10,6 +10,7 @@ builder.AddServiceDefaults();
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<MuseumCreatedConsumer>();
+    x.AddConsumer<DocumentUploadedConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
