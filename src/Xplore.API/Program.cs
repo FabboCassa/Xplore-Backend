@@ -1,5 +1,6 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Xplore.Application;
 using Xplore.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +10,9 @@ builder.AddServiceDefaults();
 
 // --- Database (PostgreSQL via Aspire) ---
 builder.AddNpgsqlDbContext<ApplicationDbContext>("xploredb");
+
+// --- Application Layer (MediatR, Validators) ---
+builder.Services.AddApplicationServices();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
