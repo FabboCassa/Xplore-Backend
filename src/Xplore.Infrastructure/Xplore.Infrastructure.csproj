@@ -9,6 +9,10 @@
     <PackageReference Include="MassTransit.RabbitMQ" Version="8.3.0" />
     <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <!-- Semantic Kernel for AI/RAG -->
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.32.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.32.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.Qdrant" Version="1.32.0-alpha" />
   </ItemGroup>
 
   <PropertyGroup>

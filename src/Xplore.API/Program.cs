@@ -1,6 +1,7 @@
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Xplore.Application;
+using Xplore.Infrastructure;
 using Xplore.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +14,9 @@ builder.AddNpgsqlDbContext<ApplicationDbContext>("xploredb");
 
 // --- Application Layer (MediatR, Validators) ---
 builder.Services.AddApplicationServices();
+
+// --- Infrastructure Layer (Semantic Kernel, AI Services) ---
+builder.Services.AddInfrastructureServices(builder.Configuration);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
