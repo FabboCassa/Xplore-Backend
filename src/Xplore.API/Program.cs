@@ -12,6 +12,9 @@ builder.AddServiceDefaults();
 // --- Database (PostgreSQL via Aspire) ---
 builder.AddNpgsqlDbContext<ApplicationDbContext>("xploredb");
 
+// --- Vector Database (Qdrant via Aspire) ---
+builder.AddQdrantClient("vectordb");
+
 // --- Application Layer (MediatR, Validators) ---
 builder.Services.AddApplicationServices();
 

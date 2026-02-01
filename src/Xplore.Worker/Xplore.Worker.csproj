@@ -4,7 +4,7 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
-		<UserSecretsId>dotnet-Xplore.Worker-4ab36e5f-c1b4-441f-a34b-2a34736402ce</UserSecretsId>
+		<UserSecretsId>xplore-worker-secrets</UserSecretsId>
 	</PropertyGroup>
 
 
@@ -20,6 +20,7 @@
 		<PackageReference Include="Aspire.Qdrant.Client" Version="9.1.0" />
 		<PackageReference Include="MassTransit" Version="8.3.0" />
 		<PackageReference Include="MassTransit.RabbitMQ" Version="8.3.0" />
+		<PackageReference Include="PdfPig" Version="0.1.9" />
 		<PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
 	</ItemGroup>

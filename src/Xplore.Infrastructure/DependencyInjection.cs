@@ -2,7 +2,9 @@ namespace Xplore.Infrastructure;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
+using Qdrant.Client;
 using Xplore.Application.AI;
 using Xplore.Infrastructure.AI;
 
@@ -20,10 +22,11 @@ public static class DependencyInjection
         var openAiApiKey = configuration["OpenAI:ApiKey"] ?? "";
         var openAiModel = configuration["OpenAI:Model"] ?? "gpt-4o-mini";
         var embeddingModel = configuration["OpenAI:EmbeddingModel"] ?? "text-embedding-3-small";
+        var useMockServices = string.Equals(configuration["AI:UseMock"], "true", StringComparison.OrdinalIgnoreCase);
 
-        if (!string.IsNullOrEmpty(openAiApiKey))
+        if (!string.IsNullOrEmpty(openAiApiKey) && !useMockServices)
         {
-            // Build Kernel with OpenAI services
+            // Use real OpenAI services
             var kernelBuilder = Kernel.CreateBuilder();
             
             kernelBuilder.AddOpenAIChatCompletion(openAiModel, openAiApiKey);
@@ -35,7 +38,7 @@ public static class DependencyInjection
             var kernel = kernelBuilder.Build();
             services.AddSingleton(kernel);
 
-            // Register AI services
+            // Register real AI services
             services.AddSingleton<ITextGenerationService, SemanticKernelTextGenerationService>();
             
             #pragma warning disable SKEXP0001
@@ -44,6 +47,28 @@ public static class DependencyInjection
             
             services.AddSingleton<IEmbeddingService, SemanticKernelEmbeddingService>();
         }
+        else
+        {
+            // Use mock services for development without OpenAI
+            services.AddSingleton<IEmbeddingService, MockEmbeddingService>();
+            services.AddSingleton<ITextGenerationService, MockTextGenerationService>();
+        }
+        
+        // Register Vector Search Service (requires QdrantClient from Aspire)
+        services.AddSingleton<IVectorSearchService>(sp =>
+        {
+            var qdrantClient = sp.GetService<QdrantClient>();
+            var embeddingService = sp.GetRequiredService<IEmbeddingService>();
+            var logger = sp.GetRequiredService<ILogger<QdrantVectorSearchService>>();
+            
+            if (qdrantClient != null)
+            {
+                return new QdrantVectorSearchService(qdrantClient, embeddingService, logger);
+            }
+            
+            // Return null if Qdrant is not configured - ChatController handles this gracefully
+            return null!;
+        });
 
         return services;
     }

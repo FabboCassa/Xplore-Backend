@@ -1,10 +1,17 @@
 ﻿using MassTransit;
+using Xplore.Infrastructure;
 using Xplore.Worker.Consumers;
 
 var builder = Host.CreateApplicationBuilder(args);
 
 // --- Aspire ServiceDefaults (OpenTelemetry, Health Checks, Service Discovery) ---
 builder.AddServiceDefaults();
+
+// --- Vector Database (Qdrant via Aspire) ---
+builder.AddQdrantClient("vectordb");
+
+// --- Infrastructure Layer (Semantic Kernel, AI Services) ---
+builder.Services.AddInfrastructureServices(builder.Configuration);
 
 // --- MassTransit with RabbitMQ (uses Aspire connection string) ---
 builder.Services.AddMassTransit(x =>
