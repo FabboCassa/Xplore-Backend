@@ -17,6 +17,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.1.0" />
 		<PackageReference Include="Aspire.Qdrant.Client" Version="9.1.0" />
 		<PackageReference Include="MassTransit" Version="8.3.0" />
 		<PackageReference Include="MassTransit.RabbitMQ" Version="8.3.0" />

@@ -1,11 +1,15 @@
 ﻿using MassTransit;
 using Xplore.Infrastructure;
+using Xplore.Infrastructure.Persistence;
 using Xplore.Worker.Consumers;
 
 var builder = Host.CreateApplicationBuilder(args);
 
 // --- Aspire ServiceDefaults (OpenTelemetry, Health Checks, Service Discovery) ---
 builder.AddServiceDefaults();
+
+// --- Database (PostgreSQL via Aspire) ---
+builder.AddNpgsqlDbContext<ApplicationDbContext>("xploredb");
 
 // --- Vector Database (Qdrant via Aspire) ---
 builder.AddQdrantClient("vectordb");
@@ -18,6 +22,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<MuseumCreatedConsumer>();
     x.AddConsumer<DocumentUploadedConsumer>();
+    x.AddConsumer<InteractionCreatedConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {

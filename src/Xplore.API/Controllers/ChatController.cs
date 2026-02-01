@@ -1,7 +1,10 @@
 namespace Xplore.API.Controllers;
 
+using System.Diagnostics;
+using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using Xplore.Application.AI;
+using Xplore.Contracts;
 
 /// <summary>
 /// Controller for AI-powered chat interactions using RAG.
@@ -12,14 +15,17 @@ public class ChatController : ControllerBase
 {
     private readonly ITextGenerationService? _textGenerationService;
     private readonly IVectorSearchService? _vectorSearchService;
+    private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<ChatController> _logger;
 
     public ChatController(
         ILogger<ChatController> logger,
+        IPublishEndpoint publishEndpoint,
         ITextGenerationService? textGenerationService = null,
         IVectorSearchService? vectorSearchService = null)
     {
         _logger = logger;
+        _publishEndpoint = publishEndpoint;
         _textGenerationService = textGenerationService;
         _vectorSearchService = vectorSearchService;
     }
@@ -33,6 +39,8 @@ public class ChatController : ControllerBase
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Chat([FromBody] ChatRequest request)
     {
+        var stopwatch = Stopwatch.StartNew();
+        
         if (string.IsNullOrWhiteSpace(request.Question))
         {
             return BadRequest("Question cannot be empty.");
@@ -79,7 +87,26 @@ public class ChatController : ControllerBase
                 request.Question,
                 context);
 
-            _logger.LogInformation("✅ Generated AI response ({Length} chars)", response.Length);
+            stopwatch.Stop();
+            _logger.LogInformation("✅ Generated AI response ({Length} chars) in {Ms}ms", 
+                response.Length, stopwatch.ElapsedMilliseconds);
+
+            // Step 3: Publish event for analytics (fire-and-forget, non-blocking)
+            var interactionEvent = new InteractionCreatedEvent(
+                InteractionId: Guid.NewGuid(),
+                MuseumId: request.MuseumId ?? Guid.Empty,
+                SessionId: request.SessionId,
+                UserQuestion: request.Question,
+                AiResponse: response,
+                RetrievedContext: context.Length > 2000 ? context[..2000] : context, // Truncate for storage
+                IsAiGenerated: true,
+                ResponseTimeMs: (int)stopwatch.ElapsedMilliseconds,
+                CreatedAt: DateTime.UtcNow
+            );
+            
+            // Fire-and-forget: don't await, don't block the response
+            _ = _publishEndpoint.Publish(interactionEvent);
+            _logger.LogDebug("Published InteractionCreatedEvent for analytics");
 
             return Ok(new ChatResponse(response, true, context));
         }
@@ -113,7 +140,7 @@ public class ChatController : ControllerBase
 /// <summary>
 /// Request body for chat endpoint.
 /// </summary>
-public record ChatRequest(string Question, Guid? MuseumId = null);
+public record ChatRequest(string Question, Guid? MuseumId = null, Guid? SessionId = null);
 
 /// <summary>
 /// Response from chat endpoint.
