@@ -1,9 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Xplore.Domain.Entities;
+using Xplore.Infrastructure.Identity;
 
 namespace Xplore.Infrastructure.Persistence;
 
-public class ApplicationDbContext : DbContext
+public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
@@ -16,10 +18,10 @@ public class ApplicationDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Configurazioni extra (es. chiavi primarie, vincoli)
+        // IMPORTANTE: Chiamare base per configurare le tabelle Identity
         base.OnModelCreating(modelBuilder);
 
-        // Esempio: Il nome del museo è obbligatorio e max 200 caratteri
+        // Configurazione Museum
         modelBuilder.Entity<Museum>(entity => {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
@@ -33,6 +35,11 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.MuseumId); // For multi-tenancy queries
             entity.HasIndex(e => e.SessionId); // For chat history lookups
             entity.HasIndex(e => e.CreatedAt); // For analytics time-based queries
+        });
+
+        // ApplicationUser configuration
+        modelBuilder.Entity<ApplicationUser>(entity => {
+            entity.Property(e => e.DisplayName).HasMaxLength(100);
         });
     }
 }

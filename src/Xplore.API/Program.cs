@@ -1,7 +1,12 @@
+using System.Text;
 using MassTransit;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Xplore.Application;
 using Xplore.Infrastructure;
+using Xplore.Infrastructure.Identity;
 using Xplore.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +16,49 @@ builder.AddServiceDefaults();
 
 // --- Database (PostgreSQL via Aspire) ---
 builder.AddNpgsqlDbContext<ApplicationDbContext>("xploredb");
+
+// --- ASP.NET Identity ---
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+{
+    // Password settings (relaxed for development)
+    options.Password.RequireDigit = true;
+    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireLowercase = true;
+    
+    // User settings
+    options.User.RequireUniqueEmail = true;
+})
+.AddEntityFrameworkStores<ApplicationDbContext>()
+.AddDefaultTokenProviders();
+
+// --- JWT Authentication ---
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "xplore-dev-key-for-development-only-32chars";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "Xplore";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "XploreApp";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        ClockSkew = TimeSpan.Zero // No tolerance for expiry
+    };
+});
+
+builder.Services.AddAuthorization();
 
 // --- Vector Database (Qdrant via Aspire) ---
 builder.AddQdrantClient("vectordb");
@@ -48,12 +96,23 @@ builder.Services.AddMassTransit(x =>
 
 var app = builder.Build();
 
-// --- Apply EF Core Migrations in Development ---
+// --- Apply EF Core Migrations and Seed Roles in Development ---
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await db.Database.MigrateAsync();
+    
+    // Seed roles
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    string[] roles = ["Admin", "MuseumManager", "Visitor"];
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+        {
+            await roleManager.CreateAsync(new IdentityRole(role));
+        }
+    }
 }
 
 // --- Aspire default endpoints (health checks) ---
@@ -67,6 +126,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication(); // MUST come before UseAuthorization
 app.UseAuthorization();
 app.MapControllers();
 
