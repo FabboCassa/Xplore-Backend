@@ -2,6 +2,7 @@ namespace Xplore.API.Controllers;
 
 using System.Diagnostics;
 using MassTransit;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Xplore.Application.AI;
 using Xplore.Contracts;
@@ -10,6 +11,7 @@ using Xplore.Contracts;
 /// Controller for AI-powered chat interactions using RAG.
 /// </summary>
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class ChatController : ControllerBase
 {

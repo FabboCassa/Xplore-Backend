@@ -20,15 +20,20 @@ builder.AddNpgsqlDbContext<ApplicationDbContext>("xploredb");
 // --- ASP.NET Identity ---
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
-    // Password settings (relaxed for development)
+    // Password settings
     options.Password.RequireDigit = true;
-    options.Password.RequiredLength = 6;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequireUppercase = false;
+    options.Password.RequiredLength = 8;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequireUppercase = true;
     options.Password.RequireLowercase = true;
-    
+
     // User settings
     options.User.RequireUniqueEmail = true;
+
+    // Account Lockout — max 5 tentativi, blocco 15 minuti
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.AllowedForNewUsers = true;
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
@@ -56,6 +61,18 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
         ClockSkew = TimeSpan.Zero // No tolerance for expiry
     };
+})
+.AddGoogle(options =>
+{
+    options.ClientId = builder.Configuration["Auth:Google:ClientId"]!;
+    options.ClientSecret = builder.Configuration["Auth:Google:ClientSecret"]!;
+})
+.AddApple(options =>
+{
+    options.ClientId = builder.Configuration["Auth:Apple:ServiceId"]!;
+    options.TeamId = builder.Configuration["Auth:Apple:TeamId"]!;
+    options.KeyId = builder.Configuration["Auth:Apple:KeyId"]!;
+    options.GenerateClientSecret = true;
 });
 
 builder.Services.AddAuthorization();

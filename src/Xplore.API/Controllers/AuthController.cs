@@ -4,6 +4,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Google.Apis.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -111,10 +112,19 @@ public class AuthController : ControllerBase
             return Unauthorized(new AuthResponse(false, "Invalid credentials"));
         }
 
-        var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: false);
+        var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
         if (!result.Succeeded)
         {
-            return Unauthorized(new AuthResponse(false, "Invalid credentials"));
+            if (result.IsLockedOut)
+            {
+                _logger.LogWarning("Account locked out: {Email}", request.Email);
+                return StatusCode(429, new AuthResponse(false, "Account temporaneamente bloccato. Riprova tra 15 minuti."));
+            }
+            if (result.RequiresTwoFactor)
+            {
+                return Ok(new { requiresTwoFactor = true, userId = user.Id });
+            }
+            return Unauthorized(new AuthResponse(false, "Credenziali non valide"));
         }
 
         var tokens = await GenerateTokens(user);
@@ -235,6 +245,153 @@ public class AuthController : ControllerBase
         ));
     }
 
+    // ========================
+    // External Login (Google / Apple)
+    // ========================
+
+    /// <summary>
+    /// External login via Google or Apple ID token.
+    /// The mobile app obtains an idToken from the provider SDK and sends it here.
+    /// </summary>
+    [HttpPost("external-login")]
+    [ProducesResponseType(typeof(TokenResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ExternalLogin([FromBody] ExternalLoginRequest request)
+    {
+        // 1. Validate idToken based on provider
+        var (isValid, email, name) = request.Provider switch
+        {
+            "Google" => await ValidateGoogleToken(request.IdToken),
+            "Apple"  => await ValidateAppleToken(request.IdToken),
+            _        => (false, (string?)null, (string?)null)
+        };
+
+        if (!isValid || email == null)
+            return Unauthorized(new AuthResponse(false, "Credenziali non valide"));
+
+        // 2. Find or create user
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user == null)
+        {
+            user = new ApplicationUser
+            {
+                UserName = email,
+                Email = email,
+                DisplayName = name ?? email.Split('@')[0],
+                AccountType = AccountType.Personal,
+                EmailConfirmed = true, // OAuth = email already verified
+            };
+            var createResult = await _userManager.CreateAsync(user);
+            if (!createResult.Succeeded)
+                return BadRequest(new AuthResponse(false, "Registrazione fallita"));
+
+            await _userManager.AddToRoleAsync(user, "Visitor");
+            _logger.LogInformation("Created new user via {Provider}: {Email}", request.Provider, email);
+        }
+
+        // 3. Generate tokens
+        var tokens = await GenerateTokens(user);
+        user.RefreshToken = tokens.RefreshToken;
+        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+        await _userManager.UpdateAsync(user);
+
+        _logger.LogInformation("User {Email} logged in via {Provider}", email, request.Provider);
+        return Ok(tokens);
+    }
+
+    // ========================
+    // Two-Factor Authentication (2FA)
+    // ========================
+
+    /// <summary>
+    /// Setup authenticator app (TOTP) for the current user.
+    /// Returns the shared key and otpauth URI for QR code generation.
+    /// </summary>
+    [Authorize]
+    [HttpPost("2fa/setup")]
+    [ProducesResponseType(typeof(TwoFactorSetupResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Setup2FA()
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+            return Unauthorized();
+
+        var key = await _userManager.GetAuthenticatorKeyAsync(user);
+
+        if (string.IsNullOrEmpty(key))
+        {
+            await _userManager.ResetAuthenticatorKeyAsync(user);
+            key = await _userManager.GetAuthenticatorKeyAsync(user);
+        }
+
+        var uri = $"otpauth://totp/Xplore:{user.Email}?secret={key}&issuer=Xplore";
+
+        return Ok(new TwoFactorSetupResponse(key!, uri));
+    }
+
+    /// <summary>
+    /// Verify a TOTP or Email code during login or 2FA setup.
+    /// On success, enables 2FA (if not yet) and returns JWT tokens.
+    /// </summary>
+    [HttpPost("2fa/verify")]
+    [ProducesResponseType(typeof(TokenResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Verify2FA([FromBody] TwoFactorVerifyRequest request)
+    {
+        var user = await _userManager.FindByIdAsync(request.UserId);
+        if (user == null)
+            return Unauthorized(new AuthResponse(false, "Credenziali non valide"));
+
+        bool isValid = request.Provider switch
+        {
+            "Authenticator" => await _userManager.VerifyTwoFactorTokenAsync(
+                user, _userManager.Options.Tokens.AuthenticatorTokenProvider, request.Code),
+            "Email" => await _userManager.VerifyTwoFactorTokenAsync(
+                user, TokenOptions.DefaultEmailProvider, request.Code),
+            _ => false
+        };
+
+        if (!isValid)
+            return Unauthorized(new AuthResponse(false, "Codice non valido"));
+
+        // Enable 2FA if not yet enabled (first-time setup)
+        if (!await _userManager.GetTwoFactorEnabledAsync(user))
+            await _userManager.SetTwoFactorEnabledAsync(user, true);
+
+        var tokens = await GenerateTokens(user);
+        user.RefreshToken = tokens.RefreshToken;
+        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+        await _userManager.UpdateAsync(user);
+
+        _logger.LogInformation("User {UserId} completed 2FA verification via {Provider}", request.UserId, request.Provider);
+        return Ok(tokens);
+    }
+
+    /// <summary>
+    /// Send a 2FA verification code via email.
+    /// </summary>
+    [HttpPost("2fa/send-email")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> SendEmail2FA([FromBody] SendEmail2FARequest request)
+    {
+        var user = await _userManager.FindByIdAsync(request.UserId);
+        if (user == null)
+            return Ok(new AuthResponse(true, "Se l'utente esiste, il codice è stato inviato.")); // Don't reveal if user exists
+
+        var code = await _userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider);
+
+        // TODO: Inject and use IEmailSender to send the code
+        // await _emailSender.SendEmailAsync(user.Email!, "Codice di Verifica Xplore",
+        //     $"Il tuo codice di verifica è: {code}. Scade tra 5 minuti.");
+
+        _logger.LogInformation("2FA email code generated for user {UserId} (code: {Code})", request.UserId, code);
+        return Ok(new AuthResponse(true, "Codice inviato"));
+    }
+
+    // ========================
+    // Private Helpers
+    // ========================
+
     private async Task<TokenResponse> GenerateTokens(ApplicationUser user)
     {
         var roles = await _userManager.GetRolesAsync(user);
@@ -266,6 +423,32 @@ public class AuthController : ControllerBase
         var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
         return new TokenResponse(accessToken, refreshToken, expiry);
+    }
+
+    private async Task<(bool IsValid, string? Email, string? Name)> ValidateGoogleToken(string idToken)
+    {
+        try
+        {
+            var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, new GoogleJsonWebSignature.ValidationSettings
+            {
+                Audience = new[] { _configuration["Auth:Google:ClientId"] }
+            });
+            return (true, payload.Email, payload.Name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Google token validation failed");
+            return (false, null, null);
+        }
+    }
+
+    private Task<(bool IsValid, string? Email, string? Name)> ValidateAppleToken(string idToken)
+    {
+        // TODO: Implement Apple ID token validation
+        // Apple uses JWT tokens that need to be validated against Apple's public keys
+        // For now, return false until Apple auth is fully configured
+        _logger.LogWarning("Apple token validation not yet implemented");
+        return Task.FromResult<(bool, string?, string?)>((false, null, null));
     }
 
     private ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
@@ -302,3 +485,7 @@ public record RefreshTokenRequest(string AccessToken, string RefreshToken);
 public record TokenResponse(string AccessToken, string RefreshToken, DateTime ExpiresAt);
 public record AuthResponse(bool Success, string Message, List<string>? Errors = null);
 public record UserInfo(string Id, string Email, string? DisplayName, string AccountType, bool IsPremium, Guid? MuseumId, string? CompanyName, List<string> Roles);
+public record ExternalLoginRequest(string Provider, string IdToken);
+public record TwoFactorSetupResponse(string SharedKey, string QrCodeUri);
+public record TwoFactorVerifyRequest(string UserId, string Code, string Provider);
+public record SendEmail2FARequest(string UserId);
