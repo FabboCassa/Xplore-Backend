@@ -45,9 +45,9 @@ public class AuthController : ControllerBase
     {
         var user = new ApplicationUser
         {
-            UserName = request.Email,
+            UserName = request.UserName,
             Email = request.Email,
-            DisplayName = request.DisplayName,
+            DisplayName = request.UserName,
             AccountType = AccountType.Personal,
             IsPremium = false
         };
@@ -109,7 +109,12 @@ public class AuthController : ControllerBase
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user == null)
         {
-            return Unauthorized(new AuthResponse(false, "Invalid credentials"));
+            user = await _userManager.FindByNameAsync(request.Email); // Fallback to checking by username
+        }
+
+        if (user == null)
+        {
+            return Unauthorized(new AuthResponse(false, "Credenziali non valide"));
         }
 
         var result = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
@@ -478,7 +483,7 @@ public class AuthController : ControllerBase
 }
 
 // DTOs
-public record RegisterPersonalRequest(string Email, string Password, string? DisplayName = null);
+public record RegisterPersonalRequest(string Email, string Password, string UserName);
 public record RegisterBusinessRequest(string Email, string Password, Guid MuseumId, string CompanyName, string? DisplayName = null, string? VatNumber = null);
 public record LoginRequest(string Email, string Password);
 public record RefreshTokenRequest(string AccessToken, string RefreshToken);
