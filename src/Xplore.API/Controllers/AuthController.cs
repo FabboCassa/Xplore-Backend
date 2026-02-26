@@ -341,6 +341,9 @@ public class AuthController : ControllerBase
         if (user == null)
             return Unauthorized();
 
+        if (user.AccountType == AccountType.Personal && user.Email!.EndsWith("@xplore.local"))
+            return BadRequest(new AuthResponse(false, "Gli account guest non supportano l'autenticazione a due fattori. Registrati per abilitare la 2FA."));
+
         var key = await _userManager.GetAuthenticatorKeyAsync(user);
 
         if (string.IsNullOrEmpty(key))
@@ -403,6 +406,9 @@ public class AuthController : ControllerBase
         var user = await _userManager.FindByIdAsync(request.UserId);
         if (user == null)
             return Ok(new AuthResponse(true, "Se l'utente esiste, il codice è stato inviato.")); // Don't reveal if user exists
+
+        if (user.AccountType == AccountType.Personal && user.Email!.EndsWith("@xplore.local"))
+            return BadRequest(new AuthResponse(false, "Gli account guest non supportano l'autenticazione a due fattori."));
 
         var code = await _userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider);
 
