@@ -89,6 +89,7 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpClient();
 
 // --- MassTransit with RabbitMQ (uses Aspire connection string) ---
 builder.Services.AddMassTransit(x =>

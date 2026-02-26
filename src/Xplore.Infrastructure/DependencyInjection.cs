@@ -79,6 +79,9 @@ public static class DependencyInjection
             return new Xplore.Infrastructure.Map.OverpassApiService(httpClient, logger);
         });
 
+        // Register Email Sender Mock
+        services.AddTransient<Xplore.Application.Services.IEmailSender, Xplore.Infrastructure.Services.MockEmailSender>();
+
         return services;
     }
 }

@@ -2,6 +2,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 // --- Infrastructure Resources ---
 var postgres = builder.AddPostgres("postgres")
+    .WithDataVolume("xplore-db-data")
     .WithPgAdmin()
     .AddDatabase("xploredb");
 

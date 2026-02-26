@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using Xplore.Application.Services;
 using Xplore.Infrastructure.Identity;
 
 /// <summary>
@@ -22,17 +23,23 @@ public class AuthController : ControllerBase
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthController> _logger;
+    private readonly HttpClient _httpClient;
+    private readonly IEmailSender _emailSender;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         IConfiguration configuration,
-        ILogger<AuthController> logger)
+        ILogger<AuthController> logger,
+        HttpClient httpClient,
+        IEmailSender emailSender)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
         _logger = logger;
+        _httpClient = httpClient;
+        _emailSender = emailSender;
     }
 
     /// <summary>
@@ -294,7 +301,20 @@ public class AuthController : ControllerBase
             _logger.LogInformation("Created new user via {Provider}: {Email}", request.Provider, email);
         }
 
-        // 3. Generate tokens
+        // 3. Verify Lockout status
+        if (await _userManager.IsLockedOutAsync(user))
+        {
+            _logger.LogWarning("Account locked out: {Email}", email);
+            return StatusCode(429, new AuthResponse(false, "Account temporaneamente bloccato."));
+        }
+
+        // 4. Verify 2FA
+        if (user.TwoFactorEnabled)
+        {
+            return Ok(new { requiresTwoFactor = true, userId = user.Id });
+        }
+
+        // 5. Generate tokens
         var tokens = await GenerateTokens(user);
         user.RefreshToken = tokens.RefreshToken;
         user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
@@ -329,7 +349,8 @@ public class AuthController : ControllerBase
             key = await _userManager.GetAuthenticatorKeyAsync(user);
         }
 
-        var uri = $"otpauth://totp/Xplore:{user.Email}?secret={key}&issuer=Xplore";
+        var encodedEmail = Uri.EscapeDataString(user.Email!);
+        var uri = $"otpauth://totp/Xplore:{encodedEmail}?secret={key}&issuer=Xplore";
 
         return Ok(new TwoFactorSetupResponse(key!, uri));
     }
@@ -385,9 +406,8 @@ public class AuthController : ControllerBase
 
         var code = await _userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider);
 
-        // TODO: Inject and use IEmailSender to send the code
-        // await _emailSender.SendEmailAsync(user.Email!, "Codice di Verifica Xplore",
-        //     $"Il tuo codice di verifica è: {code}. Scade tra 5 minuti.");
+        await _emailSender.SendEmailAsync(user.Email!, "Codice di Verifica Xplore",
+            $"Il tuo codice di verifica 2FA è: {code}. Inseriscilo nell'app per completare l'accesso. Il codice scadrà a breve.");
 
         _logger.LogInformation("2FA email code generated for user {UserId} (code: {Code})", request.UserId, code);
         return Ok(new AuthResponse(true, "Codice inviato"));
@@ -447,13 +467,39 @@ public class AuthController : ControllerBase
         }
     }
 
-    private Task<(bool IsValid, string? Email, string? Name)> ValidateAppleToken(string idToken)
+    private async Task<(bool IsValid, string? Email, string? Name)> ValidateAppleToken(string idToken)
     {
-        // TODO: Implement Apple ID token validation
-        // Apple uses JWT tokens that need to be validated against Apple's public keys
-        // For now, return false until Apple auth is fully configured
-        _logger.LogWarning("Apple token validation not yet implemented");
-        return Task.FromResult<(bool, string?, string?)>((false, null, null));
+        try
+        {
+            // Apple's public keys endpoint
+            var appleKeysJson = await _httpClient.GetStringAsync("https://appleid.apple.com/auth/keys");
+            var appleKeys = new JsonWebKeySet(appleKeysJson);
+
+            var handler = new JwtSecurityTokenHandler();
+            var jwtToken = handler.ReadJwtToken(idToken);
+
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKeys = appleKeys.GetSigningKeys(),
+                ValidateIssuer = true,
+                ValidIssuer = "https://appleid.apple.com",
+                ValidateAudience = true,
+                ValidAudience = _configuration["Auth:Apple:ClientId"], // e.g. org.xplore.project
+                ValidateLifetime = true
+            };
+
+            var principal = handler.ValidateToken(idToken, validationParameters, out var validatedToken);
+            var email = principal.FindFirst(ClaimTypes.Email)?.Value ?? principal.FindFirst("email")?.Value;
+            var name = principal.FindFirst(ClaimTypes.Name)?.Value; // Apple only sends name on first login
+
+            return (true, email, name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Apple token validation failed");
+            return (false, null, null);
+        }
     }
 
     private ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
