@@ -15,12 +15,14 @@ namespace Xplore.Infrastructure.Map;
 public class OverpassApiService
 {
     private readonly HttpClient _httpClient;
+    private readonly WikipediaApiService _wikipediaApiService;
     private readonly ILogger<OverpassApiService> _logger;
     private const string OverpassUrl = "https://overpass-api.de/api/interpreter";
 
-    public OverpassApiService(HttpClient httpClient, ILogger<OverpassApiService> logger)
+    public OverpassApiService(HttpClient httpClient, WikipediaApiService wikipediaApiService, ILogger<OverpassApiService> logger)
     {
         _httpClient = httpClient;
+        _wikipediaApiService = wikipediaApiService;
         _logger = logger;
     }
 
@@ -76,10 +78,17 @@ public class OverpassApiService
 
             // Filter out POIs without a name
             var named = pois.Where(p => p.Name != "Unknown" && !string.IsNullOrWhiteSpace(p.Name)).ToList();
-            _logger.LogInformation("🌍 [Overpass] {Total} total → {Named} with names (filtered {Removed} unnamed)",
-                pois.Count, named.Count, pois.Count - named.Count);
 
-            return named;
+            // Enrich POIs using Wikipedia/Wikidata in parallel
+            var enrichedPois = new List<OverpassPoi>();
+            var enrichTasks = named.Select(poi => _wikipediaApiService.EnrichPoiAsync(poi));
+            var enrichedResults = await Task.WhenAll(enrichTasks);
+            enrichedPois.AddRange(enrichedResults);
+
+            _logger.LogInformation("🌍 [Overpass] {Total} total → {Named} with names (filtered {Removed} unnamed), {Enriched} enriched",
+                pois.Count, named.Count, pois.Count - named.Count, enrichedPois.Count);
+
+            return enrichedPois;
         }
         catch (Exception ex)
         {
@@ -140,6 +149,8 @@ public class OverpassApiService
                         ?? GetWikidataThumbnailUrl(GetTag(tags, "wikidata"));
 
             var type = ClassifyType(tags);
+            var wikipediaTag = GetTag(tags, "wikipedia");
+            var wikidataTag = GetTag(tags, "wikidata");
 
             result.Add(new OverpassPoi(
                 Id: id,
@@ -149,7 +160,9 @@ public class OverpassApiService
                 Type: type,
                 Description: description,
                 Category: category,
-                ImageUrl: imageUrl
+                ImageUrl: imageUrl,
+                WikipediaTag: wikipediaTag,
+                WikidataTag: wikidataTag
             ));
         }
 
@@ -276,5 +289,7 @@ public record OverpassPoi(
     string Type,
     string? Description,
     string? Category,
-    string? ImageUrl
+    string? ImageUrl,
+    string? WikipediaTag = null,
+    string? WikidataTag = null
 );

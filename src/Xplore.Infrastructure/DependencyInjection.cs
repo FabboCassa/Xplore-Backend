@@ -72,11 +72,19 @@ public static class DependencyInjection
 
         // Register Overpass API Service (stateless POI proxy for maps)
         // HttpClient is scoped to OverpassApiService only — not registered globally
+        services.AddMemoryCache();
+        
+        services.AddHttpClient<Xplore.Infrastructure.Map.WikipediaApiService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+
         services.AddSingleton<Xplore.Infrastructure.Map.OverpassApiService>(sp =>
         {
             var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            var wikiService = sp.GetRequiredService<Xplore.Infrastructure.Map.WikipediaApiService>();
             var logger = sp.GetRequiredService<ILogger<Xplore.Infrastructure.Map.OverpassApiService>>();
-            return new Xplore.Infrastructure.Map.OverpassApiService(httpClient, logger);
+            return new Xplore.Infrastructure.Map.OverpassApiService(httpClient, wikiService, logger);
         });
 
         // Register Email Sender
