@@ -15,6 +15,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     // Qui registriamo le tabelle
     public DbSet<Museum> Museums { get; set; }
     public DbSet<ChatInteraction> ChatInteractions { get; set; }
+    public DbSet<RadiusLoadingMetric> RadiusLoadingMetrics { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,6 +41,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         // ApplicationUser configuration
         modelBuilder.Entity<ApplicationUser>(entity => {
             entity.Property(e => e.DisplayName).HasMaxLength(100);
+        });
+
+        // RadiusLoadingMetric configuration
+        modelBuilder.Entity<RadiusLoadingMetric>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.RadiusKm);   // For GROUP BY queries
+            entity.HasIndex(e => e.RecordedAt); // For time-based filtering
         });
     }
 }
