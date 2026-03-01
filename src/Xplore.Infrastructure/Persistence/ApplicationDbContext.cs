@@ -16,6 +16,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Museum> Museums { get; set; }
     public DbSet<ChatInteraction> ChatInteractions { get; set; }
     public DbSet<RadiusLoadingMetric> RadiusLoadingMetrics { get; set; }
+    public DbSet<PoiRating> PoiRatings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -49,6 +50,15 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.RadiusKm);   // For GROUP BY queries
             entity.HasIndex(e => e.RecordedAt); // For time-based filtering
+        });
+
+        // PoiRating configuration
+        modelBuilder.Entity<PoiRating>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PoiId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(450); // Matches max len of Identity UserId
+            entity.HasIndex(e => e.PoiId);
         });
     }
 }

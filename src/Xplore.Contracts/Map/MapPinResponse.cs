@@ -16,5 +16,7 @@ public record MapPinResponse(
     string? OpeningHours = null,
     string? Fee = null,
     string? Phone = null,
-    string? Website = null
+    string? Website = null,
+    double? Rating = null,
+    int? RatingsCount = null
 );
