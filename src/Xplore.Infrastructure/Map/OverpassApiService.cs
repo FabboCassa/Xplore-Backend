@@ -98,6 +98,70 @@ public class OverpassApiService
         }
     }
 
+    /// <summary>
+    /// Search POIs by name within a given radius using Overpass QL regex filter.
+    /// Only returns named POIs whose name matches the query (case-insensitive).
+    /// </summary>
+    public async Task<List<OverpassPoi>> SearchPoisAsync(string query, double lat, double lon, double radiusKm)
+    {
+        var radiusMeters = (int)(radiusKm * 1000);
+        var latStr = lat.ToString(CultureInfo.InvariantCulture);
+        var lonStr = lon.ToString(CultureInfo.InvariantCulture);
+
+        // Escape special regex characters in the user's query
+        var escapedQuery = System.Text.RegularExpressions.Regex.Escape(query);
+
+        var overpassQuery = $"""
+            [out:json][timeout:15];
+            (
+              nwr["name"~"{escapedQuery}",i]["tourism"](around:{radiusMeters},{latStr},{lonStr});
+              nwr["name"~"{escapedQuery}",i]["historic"](around:{radiusMeters},{latStr},{lonStr});
+              nwr["name"~"{escapedQuery}",i]["amenity"~"place_of_worship|theatre|cinema|arts_centre|library"](around:{radiusMeters},{latStr},{lonStr});
+              nwr["name"~"{escapedQuery}",i]["leisure"~"park|garden|nature_reserve"](around:{radiusMeters},{latStr},{lonStr});
+            );
+            out center body;
+            """;
+
+        _logger.LogInformation("🔎 [Overpass] Search '{Query}': center=({Lat}, {Lon}), radius={Radius}m",
+            query, latStr, lonStr, radiusMeters);
+
+        var sw = Stopwatch.StartNew();
+
+        try
+        {
+            var content = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("data", overpassQuery)
+            });
+
+            var response = await _httpClient.PostAsync(OverpassUrl, content);
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync();
+            sw.Stop();
+
+            _logger.LogInformation("🔎 [Overpass] Search response in {Elapsed}ms, size={Size} bytes",
+                sw.ElapsedMilliseconds, json.Length);
+
+            var pois = ParseOverpassResponse(json);
+            var named = pois.Where(p => p.Name != "Unknown" && !string.IsNullOrWhiteSpace(p.Name)).ToList();
+
+            // Enrich with Wikipedia data
+            var enrichTasks = named.Select(poi => _wikipediaApiService.EnrichPoiAsync(poi));
+            var enrichedPois = (await Task.WhenAll(enrichTasks)).ToList();
+
+            _logger.LogInformation("🔎 [Overpass] Search '{Query}' → {Count} results", query, enrichedPois.Count);
+            return enrichedPois;
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex, "🔎 [Overpass] Search FAILED after {Elapsed}ms for query='{Query}'",
+                sw.ElapsedMilliseconds, query);
+            return [];
+        }
+    }
+
     private static List<OverpassPoi> ParseOverpassResponse(string json)
     {
         var result = new List<OverpassPoi>();
