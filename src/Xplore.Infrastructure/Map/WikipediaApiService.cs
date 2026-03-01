@@ -69,11 +69,24 @@ public class WikipediaApiService
 
         if (string.IsNullOrEmpty(wikiTitle))
         {
-            return poi; // Could not resolve title
+            // No Wikipedia title found — still try Wikidata image as last resort
+            if (!string.IsNullOrEmpty(poi.WikidataTag) && string.IsNullOrEmpty(poi.ImageUrl))
+            {
+                var wikidataImage = await FetchWikidataImageAsync(poi.WikidataTag);
+                if (wikidataImage != null)
+                    return poi with { ImageUrl = wikidataImage };
+            }
+            return poi;
         }
 
         // 3. Fetch Wikipedia Summary
         var (description, imageUrl) = await FetchWikipediaSummaryAsync(wikiTitle, wikiLang);
+
+        // 4. Fallback to Wikidata P18 image if Wikipedia didn't provide one
+        if (imageUrl == null && !string.IsNullOrEmpty(poi.WikidataTag))
+        {
+            imageUrl = await FetchWikidataImageAsync(poi.WikidataTag);
+        }
 
         if (description != null || imageUrl != null)
         {
@@ -229,6 +242,62 @@ public class WikipediaApiService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to search Wikipedia for name {Name} ({Lang}).", name, language);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+
+        _cache.Set(cacheKey, (string?)null, TimeSpan.FromHours(1));
+        return null;
+    }
+
+    /// <summary>
+    /// Fetches a high-quality image URL from Wikidata using the P18 (image) property.
+    /// Builds a Wikimedia Commons URL from the filename.
+    /// </summary>
+    private async Task<string?> FetchWikidataImageAsync(string wikidataId)
+    {
+        var cacheKey = $"wikidata_image_{wikidataId}";
+        if (_cache.TryGetValue(cacheKey, out string? cachedUrl))
+        {
+            return cachedUrl;
+        }
+
+        await _semaphore.WaitAsync();
+        try
+        {
+            var url = $"https://www.wikidata.org/w/api.php?action=wbgetclaims&entity={wikidataId}&property=P18&format=json";
+            var response = await _httpClient.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+
+            if (doc.RootElement.TryGetProperty("claims", out var claims) &&
+                claims.TryGetProperty("P18", out var p18Array) &&
+                p18Array.GetArrayLength() > 0)
+            {
+                var mainSnak = p18Array[0].GetProperty("mainsnak");
+                if (mainSnak.TryGetProperty("datavalue", out var datavalue))
+                {
+                    var filename = datavalue.GetProperty("value").GetString();
+                    if (!string.IsNullOrEmpty(filename))
+                    {
+                        // Build Wikimedia Commons URL from filename
+                        var encodedFilename = Uri.EscapeDataString(filename.Replace(' ', '_'));
+                        var imageUrl = $"https://commons.wikimedia.org/wiki/Special:FilePath/{encodedFilename}";
+
+                        _logger.LogDebug("🖼️ [Wikidata] P18 image for {Id}: {Url}", wikidataId, imageUrl);
+                        _cache.Set(cacheKey, imageUrl, TimeSpan.FromDays(7));
+                        return imageUrl;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch Wikidata P18 image for {WikidataId}.", wikidataId);
         }
         finally
         {

@@ -206,6 +206,11 @@ public class OverpassApiService
                         ?? PoiClassifier.GetWikipediaThumbnailUrl(PoiClassifier.GetTag(tags, "wikipedia"))
                         ?? PoiClassifier.GetWikidataThumbnailUrl(PoiClassifier.GetTag(tags, "wikidata"));
 
+            var openingHours = PoiClassifier.GetTag(tags, "opening_hours");
+            var fee = PoiClassifier.GetTag(tags, "fee") ?? PoiClassifier.GetTag(tags, "charge");
+            var phone = PoiClassifier.GetTag(tags, "phone");
+            var website = PoiClassifier.GetTag(tags, "website") ?? PoiClassifier.GetTag(tags, "contact:website");
+
             result.Add(new OverpassPoi(
                 Id: id,
                 Name: name,
@@ -216,7 +221,11 @@ public class OverpassApiService
                 Category: PoiClassifier.ClassifyCategory(tags),
                 ImageUrl: imageUrl,
                 WikipediaTag: PoiClassifier.GetTag(tags, "wikipedia"),
-                WikidataTag: PoiClassifier.GetTag(tags, "wikidata")
+                WikidataTag: PoiClassifier.GetTag(tags, "wikidata"),
+                OpeningHours: openingHours,
+                Fee: fee,
+                Phone: phone,
+                Website: website
             ));
         }
 
@@ -234,6 +243,10 @@ public record OverpassPoi(
     string? Category,
     string? ImageUrl,
     string? WikipediaTag = null,
-    string? WikidataTag = null
+    string? WikidataTag = null,
+    string? OpeningHours = null,
+    string? Fee = null,
+    string? Phone = null,
+    string? Website = null
 );
 

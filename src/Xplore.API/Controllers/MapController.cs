@@ -41,7 +41,11 @@ public class MapController : ControllerBase
             Type: poi.Type,
             Description: poi.Description,
             Category: poi.Category,
-            ImageUrl: poi.ImageUrl
+            ImageUrl: poi.ImageUrl,
+            OpeningHours: poi.OpeningHours,
+            Fee: poi.Fee,
+            Phone: poi.Phone,
+            Website: poi.Website
         )).ToList();
 
         _logger.LogInformation("📍 [MapController] Returning {Count} POIs to client", response.Count);
@@ -74,7 +78,11 @@ public class MapController : ControllerBase
             Type: poi.Type,
             Description: poi.Description,
             Category: poi.Category,
-            ImageUrl: poi.ImageUrl
+            ImageUrl: poi.ImageUrl,
+            OpeningHours: poi.OpeningHours,
+            Fee: poi.Fee,
+            Phone: poi.Phone,
+            Website: poi.Website
         )).ToList();
 
         _logger.LogInformation("🔎 [MapController] Search '{Query}' → returning {Count} POIs", query, response.Count);

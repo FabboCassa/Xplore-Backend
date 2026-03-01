@@ -12,5 +12,9 @@ public record MapPinResponse(
     string Type,
     string? Description,
     string? Category,
-    string? ImageUrl
+    string? ImageUrl,
+    string? OpeningHours = null,
+    string? Fee = null,
+    string? Phone = null,
+    string? Website = null
 );
