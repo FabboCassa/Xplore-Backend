@@ -47,7 +47,7 @@ public class RadiusMetricsController : ControllerBase
         _db.RadiusLoadingMetrics.Add(metric);
         await _db.SaveChangesAsync();
 
-        _logger.LogInformation("📊 [Metrics] Recorded {Ms}ms for radius {Radius}km",
+        _logger.LogInformation("[Metrics] Recorded {Ms}ms for radius {Radius}km",
             request.LoadingTimeMs, request.RadiusKm);
 
         return Ok();

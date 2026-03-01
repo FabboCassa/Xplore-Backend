@@ -288,7 +288,7 @@ public class WikipediaApiService
                         var encodedFilename = Uri.EscapeDataString(filename.Replace(' ', '_'));
                         var imageUrl = $"https://commons.wikimedia.org/wiki/Special:FilePath/{encodedFilename}";
 
-                        _logger.LogDebug("🖼️ [Wikidata] P18 image for {Id}: {Url}", wikidataId, imageUrl);
+                        _logger.LogDebug("[Wikidata] P18 image for {Id}: {Url}", wikidataId, imageUrl);
                         _cache.Set(cacheKey, imageUrl, TimeSpan.FromDays(7));
                         return imageUrl;
                     }

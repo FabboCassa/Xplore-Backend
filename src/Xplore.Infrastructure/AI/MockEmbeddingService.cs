@@ -19,7 +19,7 @@ public class MockEmbeddingService : IEmbeddingService
 
     public Task<ReadOnlyMemory<float>> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("🧪 [MOCK] Generating fake embedding for: {Preview}...", 
+        _logger.LogDebug("[MOCK] Generating fake embedding for: {Preview}...", 
             text.Length > 50 ? text[..50] : text);
 
         // Generate deterministic embeddings based on text hash

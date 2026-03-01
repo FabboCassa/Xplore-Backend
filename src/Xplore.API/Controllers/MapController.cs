@@ -33,7 +33,7 @@ public class MapController : ControllerBase
         [FromQuery] double lon,
         [FromQuery] double radius = 3.0)
     {
-        _logger.LogInformation("📍 [MapController] GET /api/map/pois?lat={Lat}&lon={Lon}&radius={Radius}km", lat, lon, radius);
+        _logger.LogInformation("[MapController] GET /api/map/pois?lat={Lat}&lon={Lon}&radius={Radius}km", lat, lon, radius);
 
         if (radius is <= 0 or > 50)
             return BadRequest("Radius must be between 0 and 50 km.");
@@ -70,7 +70,7 @@ public class MapController : ControllerBase
             );
         }).ToList();
 
-        _logger.LogInformation("📍 [MapController] Returning {Count} POIs to client", response.Count);
+        _logger.LogInformation("[MapController] Returning {Count} POIs to client", response.Count);
         return Ok(response);
     }
 
@@ -81,7 +81,7 @@ public class MapController : ControllerBase
         [FromQuery] double lon,
         [FromQuery] double radius = 10.0)
     {
-        _logger.LogInformation("🔎 [MapController] GET /api/map/search?query={Query}&lat={Lat}&lon={Lon}&radius={Radius}km",
+        _logger.LogInformation("[MapController] GET /api/map/search?query={Query}&lat={Lat}&lon={Lon}&radius={Radius}km",
             query, lat, lon, radius);
 
         if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
@@ -122,7 +122,7 @@ public class MapController : ControllerBase
             );
         }).ToList();
 
-        _logger.LogInformation("🔎 [MapController] Search '{Query}' → returning {Count} POIs", query, response.Count);
+        _logger.LogInformation("[MapController] Search '{Query}' → returning {Count} POIs", query, response.Count);
         return Ok(response);
     }
 

@@ -48,7 +48,7 @@ public class ChatController : ControllerBase
             return BadRequest("Question cannot be empty.");
         }
 
-        _logger.LogInformation("💬 Received question: {Question}", request.Question);
+        _logger.LogInformation("Received question: {Question}", request.Question);
 
         // Check if AI services are configured
         if (_textGenerationService == null)
@@ -90,7 +90,7 @@ public class ChatController : ControllerBase
                 context);
 
             stopwatch.Stop();
-            _logger.LogInformation("✅ Generated AI response ({Length} chars) in {Ms}ms", 
+            _logger.LogInformation("Generated AI response ({Length} chars) in {Ms}ms", 
                 response.Length, stopwatch.ElapsedMilliseconds);
 
             // Step 3: Publish event for analytics (fire-and-forget, non-blocking)

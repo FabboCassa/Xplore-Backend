@@ -15,7 +15,7 @@ public class MuseumCreatedConsumer : IConsumer<MuseumCreatedEvent>
 
     public Task Consume(ConsumeContext<MuseumCreatedEvent> context)
     {
-        _logger.LogInformation("MESSAGGIO RICEVUTO! Ho visto che è stato creato il museo: {Name} (ID: {Id})",
+        _logger.LogInformation("Message received! Museum created: {Name} (ID: {Id})",
             context.Message.Name, context.Message.Id);
 
         return Task.CompletedTask;

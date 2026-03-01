@@ -28,7 +28,7 @@ public class InteractionCreatedConsumer : IConsumer<InteractionCreatedEvent>
         var message = context.Message;
         
         _logger.LogInformation(
-            "💬 Interaction received for analytics: {InteractionId} (Museum: {MuseumId})",
+            "Interaction received for analytics: {InteractionId} (Museum: {MuseumId})",
             message.InteractionId, message.MuseumId);
 
         try
@@ -57,11 +57,11 @@ public class InteractionCreatedConsumer : IConsumer<InteractionCreatedEvent>
             _dbContext.ChatInteractions.Add(interaction);
             await _dbContext.SaveChangesAsync(context.CancellationToken);
 
-            _logger.LogInformation("✅ Interaction {InteractionId} saved to database", message.InteractionId);
+            _logger.LogInformation("Interaction {InteractionId} saved to database", message.InteractionId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Failed to save interaction {InteractionId}", message.InteractionId);
+            _logger.LogError(ex, "Failed to save interaction {InteractionId}", message.InteractionId);
             throw; // Let MassTransit handle retry
         }
     }

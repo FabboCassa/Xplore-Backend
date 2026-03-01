@@ -55,7 +55,7 @@ public class OverpassApiService
             out center body;
             """;
 
-        _logger.LogInformation("🌍 [Overpass] Querying ALL POI types: center=({Lat}, {Lon}), radius={Radius}m", latStr, lonStr, radiusMeters);
+        _logger.LogInformation("[Overpass] Querying ALL POI types: center=({Lat}, {Lon}), radius={Radius}m", latStr, lonStr, radiusMeters);
 
         var sw = Stopwatch.StartNew();
 
@@ -72,7 +72,7 @@ public class OverpassApiService
             var json = await response.Content.ReadAsStringAsync();
             sw.Stop();
 
-            _logger.LogInformation("🌍 [Overpass] Response in {Elapsed}ms, size={Size} bytes", sw.ElapsedMilliseconds, json.Length);
+            _logger.LogInformation("[Overpass] Response in {Elapsed}ms, size={Size} bytes", sw.ElapsedMilliseconds, json.Length);
 
             var pois = ParseOverpassResponse(json);
 
@@ -85,7 +85,7 @@ public class OverpassApiService
             var enrichedResults = await Task.WhenAll(enrichTasks);
             enrichedPois.AddRange(enrichedResults);
 
-            _logger.LogInformation("🌍 [Overpass] {Total} total → {Named} with names (filtered {Removed} unnamed), {Enriched} enriched",
+            _logger.LogInformation("[Overpass] {Total} total → {Named} with names (filtered {Removed} unnamed), {Enriched} enriched",
                 pois.Count, named.Count, pois.Count - named.Count, enrichedPois.Count);
 
             return enrichedPois;
@@ -93,7 +93,7 @@ public class OverpassApiService
         catch (Exception ex)
         {
             sw.Stop();
-            _logger.LogError(ex, "🌍 [Overpass] FAILED after {Elapsed}ms for lat={Lat}, lon={Lon}", sw.ElapsedMilliseconds, lat, lon);
+            _logger.LogError(ex, "[Overpass] FAILED after {Elapsed}ms for lat={Lat}, lon={Lon}", sw.ElapsedMilliseconds, lat, lon);
             return [];
         }
     }
@@ -122,7 +122,7 @@ public class OverpassApiService
             out center body;
             """;
 
-        _logger.LogInformation("🔎 [Overpass] Search '{Query}': center=({Lat}, {Lon}), radius={Radius}m",
+        _logger.LogInformation("[Overpass] Search '{Query}': center=({Lat}, {Lon}), radius={Radius}m",
             query, latStr, lonStr, radiusMeters);
 
         var sw = Stopwatch.StartNew();
@@ -140,7 +140,7 @@ public class OverpassApiService
             var json = await response.Content.ReadAsStringAsync();
             sw.Stop();
 
-            _logger.LogInformation("🔎 [Overpass] Search response in {Elapsed}ms, size={Size} bytes",
+            _logger.LogInformation("[Overpass] Search response in {Elapsed}ms, size={Size} bytes",
                 sw.ElapsedMilliseconds, json.Length);
 
             var pois = ParseOverpassResponse(json);
@@ -150,13 +150,13 @@ public class OverpassApiService
             var enrichTasks = named.Select(poi => _wikipediaApiService.EnrichPoiAsync(poi));
             var enrichedPois = (await Task.WhenAll(enrichTasks)).ToList();
 
-            _logger.LogInformation("🔎 [Overpass] Search '{Query}' → {Count} results", query, enrichedPois.Count);
+            _logger.LogInformation("[Overpass] Search '{Query}' → {Count} results", query, enrichedPois.Count);
             return enrichedPois;
         }
         catch (Exception ex)
         {
             sw.Stop();
-            _logger.LogError(ex, "🔎 [Overpass] Search FAILED after {Elapsed}ms for query='{Query}'",
+            _logger.LogError(ex, "[Overpass] Search FAILED after {Elapsed}ms for query='{Query}'",
                 sw.ElapsedMilliseconds, query);
             return [];
         }

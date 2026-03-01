@@ -18,7 +18,7 @@ public class MockTextGenerationService : ITextGenerationService
 
     public Task<string> GenerateResponseAsync(string query, string context, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("🧪 [MOCK] Generating fake response for: {Query}", query);
+        _logger.LogDebug("[MOCK] Generating fake response for: {Query}", query);
 
         // Generate a mock response that includes parts of the context
         var contextPreview = context.Length > 200 ? context[..200] + "..." : context;

@@ -34,7 +34,7 @@ public class DocumentUploadedConsumer : IConsumer<DocumentUploadedEvent>
         var message = context.Message;
         
         _logger.LogInformation(
-            "📄 Document received for processing: {FileName} (ID: {DocumentId}, Museum: {MuseumId})",
+            "Document received for processing: {FileName} (ID: {DocumentId}, Museum: {MuseumId})",
             message.FileName, message.DocumentId, message.MuseumId);
 
         try
@@ -46,7 +46,7 @@ public class DocumentUploadedConsumer : IConsumer<DocumentUploadedEvent>
 
             if (string.IsNullOrWhiteSpace(text))
             {
-                _logger.LogWarning("⚠️ No text extracted from PDF {FileName}", message.FileName);
+                _logger.LogWarning("No text extracted from PDF {FileName}", message.FileName);
                 return;
             }
 
@@ -88,20 +88,20 @@ public class DocumentUploadedConsumer : IConsumer<DocumentUploadedEvent>
                 // Batch upsert to Qdrant
                 await _qdrantClient.UpsertAsync(CollectionName, points, cancellationToken: context.CancellationToken);
                 
-                _logger.LogInformation("✅ Document {DocumentId} processed: {ChunkCount} chunks stored in Qdrant", 
+                _logger.LogInformation("Document {DocumentId} processed: {ChunkCount} chunks stored in Qdrant", 
                     message.DocumentId, points.Count);
             }
             else
             {
                 if (_embeddingService == null)
-                    _logger.LogWarning("⚠️ EmbeddingService not configured. Configure OpenAI:ApiKey.");
+                    _logger.LogWarning("EmbeddingService not configured. Configure OpenAI:ApiKey.");
                 if (_qdrantClient == null)
-                    _logger.LogWarning("⚠️ QdrantClient not configured.");
+                    _logger.LogWarning("QdrantClient not configured.");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Failed to process document {DocumentId}", message.DocumentId);
+            _logger.LogError(ex, "Failed to process document {DocumentId}", message.DocumentId);
             throw; // Let MassTransit handle retry
         }
     }
