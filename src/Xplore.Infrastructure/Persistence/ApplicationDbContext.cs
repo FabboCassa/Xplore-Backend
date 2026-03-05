@@ -12,18 +12,18 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
     }
 
-    // Qui registriamo le tabelle
     public DbSet<Museum> Museums { get; set; }
     public DbSet<ChatInteraction> ChatInteractions { get; set; }
     public DbSet<RadiusLoadingMetric> RadiusLoadingMetrics { get; set; }
     public DbSet<PoiRating> PoiRatings { get; set; }
+    public DbSet<Group> Groups { get; set; }
+    public DbSet<GroupMember> GroupMembers { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // IMPORTANTE: Chiamare base per configurare le tabelle Identity
         base.OnModelCreating(modelBuilder);
 
-        // Configurazione Museum
+        // Museum configuration
         modelBuilder.Entity<Museum>(entity => {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
@@ -34,9 +34,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasKey(e => e.Id);
             entity.Property(e => e.UserQuestion).IsRequired();
             entity.Property(e => e.AiResponse).IsRequired();
-            entity.HasIndex(e => e.MuseumId); // For multi-tenancy queries
-            entity.HasIndex(e => e.SessionId); // For chat history lookups
-            entity.HasIndex(e => e.CreatedAt); // For analytics time-based queries
+            entity.HasIndex(e => e.MuseumId);
+            entity.HasIndex(e => e.SessionId);
+            entity.HasIndex(e => e.CreatedAt);
         });
 
         // ApplicationUser configuration
@@ -48,8 +48,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<RadiusLoadingMetric>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.RadiusKm);   // For GROUP BY queries
-            entity.HasIndex(e => e.RecordedAt); // For time-based filtering
+            entity.HasIndex(e => e.RadiusKm);
+            entity.HasIndex(e => e.RecordedAt);
         });
 
         // PoiRating configuration
@@ -57,8 +57,33 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.PoiId).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.UserId).IsRequired().HasMaxLength(450); // Matches max len of Identity UserId
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(450);
             entity.HasIndex(e => e.PoiId);
+        });
+
+        // Group configuration
+        modelBuilder.Entity<Group>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.PasswordHash).HasMaxLength(500);
+            entity.Property(e => e.CreatedById).IsRequired().HasMaxLength(450);
+            entity.HasIndex(e => e.CreatedById);
+            entity.HasIndex(e => e.AccessType);
+            entity.HasMany(e => e.Members)
+                  .WithOne(e => e.Group)
+                  .HasForeignKey(e => e.GroupId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // GroupMember configuration
+        modelBuilder.Entity<GroupMember>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(450);
+            entity.HasIndex(e => new { e.GroupId, e.UserId }).IsUnique();
+            entity.HasIndex(e => e.UserId);
         });
     }
 }

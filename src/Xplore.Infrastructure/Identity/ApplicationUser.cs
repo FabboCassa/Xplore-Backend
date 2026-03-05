@@ -53,6 +53,28 @@ public class ApplicationUser : IdentityUser
     /// When the refresh token expires.
     /// </summary>
     public DateTime? RefreshTokenExpiryTime { get; set; }
+
+    // ── Explorer Leaderboard Fields ──
+
+    /// <summary>
+    /// Number of unique places the user has visited.
+    /// </summary>
+    public int VisitedPlacesCount { get; set; }
+
+    /// <summary>
+    /// Number of group competition victories.
+    /// </summary>
+    public int GroupVictories { get; set; }
+
+    /// <summary>
+    /// Cumulative community contributions (likes, comments, place suggestions/corrections).
+    /// </summary>
+    public int CommunityContributions { get; set; }
+
+    /// <summary>
+    /// Pre-computed total explorer score for fast leaderboard queries.
+    /// </summary>
+    public int TotalScore { get; set; }
 }
 
 /// <summary>
