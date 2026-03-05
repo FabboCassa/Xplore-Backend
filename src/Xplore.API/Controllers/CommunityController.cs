@@ -251,12 +251,15 @@ public class CommunityController : ControllerBase
             .Where(u => u.DisplayName == null
                         || !u.DisplayName.StartsWith("Guest "))
             .OrderByDescending(u => u.TotalScore)
+            .ThenBy(u => u.UserName)
             .Take(top)
             .ToListAsync();
 
+        _logger.LogInformation("Leaderboard query returned {Count} users", users.Count);
+
         var entries = users.Select((u, index) => new LeaderboardEntry(
             u.Id,
-            u.DisplayName,
+            u.DisplayName ?? u.UserName,
             u.VisitedPlacesCount,
             u.GroupVictories,
             u.CommunityContributions,
