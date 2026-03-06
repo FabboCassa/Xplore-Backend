@@ -40,3 +40,34 @@ public record LeaderboardEntry(
 /// Request to join a password-protected group.
 /// </summary>
 public record JoinGroupRequest(string? Password = null);
+
+/// <summary>
+/// A single member of a group.
+/// </summary>
+public record GroupMemberResponse(
+    string UserId,
+    string DisplayName,
+    int Role,
+    DateTime JoinedAt);
+
+/// <summary>
+/// Response with full group information, including members.
+/// </summary>
+public record GroupDetailResponse(
+    Guid Id,
+    string Name,
+    string? Description,
+    string? ImageUrl,
+    string CreatedById,
+    DateTime CreatedAt,
+    int MemberCount,
+    int AccessType,
+    bool IsPasswordProtected,
+    List<GroupMemberResponse> Members);
+
+/// <summary>
+/// Request to change a group's visibility.
+/// </summary>
+public record ChangeGroupVisibilityRequest(
+    int AccessType,
+    string? Password = null);

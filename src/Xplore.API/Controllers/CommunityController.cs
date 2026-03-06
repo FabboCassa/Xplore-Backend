@@ -237,6 +237,112 @@ public class CommunityController : ControllerBase
         return Ok(groups.Select(g => MapToResponse(g, g.Members.Count)));
     }
 
+    /// <summary>
+    /// Get the details of a group, including its members.
+    /// </summary>
+    [HttpGet("groups/{id:guid}/detail")]
+    [ProducesResponseType(typeof(GroupDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetGroupDetail(Guid id)
+    {
+        var group = await _dbContext.Groups
+            .FirstOrDefaultAsync(g => g.Id == id);
+
+        if (group == null) return NotFound();
+
+        var members = await _dbContext.GroupMembers
+            .Where(m => m.GroupId == id)
+            .Join(_dbContext.Users, 
+                  m => m.UserId, 
+                  u => u.Id, 
+                  (m, u) => new GroupMemberResponse(
+                      m.UserId,
+                      u.DisplayName ?? u.UserName ?? string.Empty,
+                      (int)m.Role,
+                      m.JoinedAt))
+            .ToListAsync();
+
+        var response = new GroupDetailResponse(
+            group.Id,
+            group.Name,
+            group.Description,
+            group.ImageUrl,
+            group.CreatedById,
+            group.CreatedAt,
+            members.Count,
+            (int)group.AccessType,
+            group.PasswordHash != null,
+            members
+        );
+
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Delete a group. Only the admin (creator) can do this.
+    /// </summary>
+    [HttpDelete("groups/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> DeleteGroup(Guid id)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var group = await _dbContext.Groups.FindAsync(id);
+        if (group == null) return NotFound();
+
+        if (group.CreatedById != userId)
+            return StatusCode(403, "Only the group creator can delete the group.");
+
+        _dbContext.Groups.Remove(group);
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} deleted group {GroupId}", userId, id);
+        return Ok();
+    }
+
+    /// <summary>
+    /// Change the visibility and password of a group.
+    /// </summary>
+    [HttpPut("groups/{id:guid}/visibility")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ChangeGroupVisibility(Guid id, [FromBody] ChangeGroupVisibilityRequest request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var group = await _dbContext.Groups.FindAsync(id);
+        if (group == null) return NotFound();
+
+        if (group.CreatedById != userId)
+            return StatusCode(403, "Only the group creator can change the visibility.");
+
+        var newAccessType = (GroupAccessType)request.AccessType;
+        group.AccessType = newAccessType;
+
+        if (newAccessType == GroupAccessType.Password)
+        {
+            if (string.IsNullOrEmpty(request.Password))
+                return BadRequest("Password is required for password-protected groups.");
+                
+            group.PasswordHash = _passwordHasher.HashPassword(null!, request.Password);
+        }
+        else
+        {
+            group.PasswordHash = null;
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} changed visibility of group {GroupId} to {AccessType}", userId, id, newAccessType);
+        return Ok();
+    }
+
     // ── Leaderboard ──
 
     /// <summary>
