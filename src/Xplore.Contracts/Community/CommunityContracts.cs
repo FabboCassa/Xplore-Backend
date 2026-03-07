@@ -71,3 +71,58 @@ public record GroupDetailResponse(
 public record ChangeGroupVisibilityRequest(
     int AccessType,
     string? Password = null);
+
+/// <summary>
+/// Request to record a visited place.
+/// </summary>
+public record VisitPlaceRequest(string PlaceId);
+
+/// <summary>
+/// Request to create a new competition.
+/// </summary>
+public record CreateCompetitionRequest(
+    string Name,
+    int Type,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    List<CompetitionRuleRequest> Rules);
+
+/// <summary>
+/// Request to create a new competition rule.
+/// </summary>
+public record CompetitionRuleRequest(
+    int ActionType,
+    int PointsAwarded,
+    string? TargetPlaceId);
+
+/// <summary>
+/// Response with competition information.
+/// </summary>
+public record CompetitionResponse(
+    Guid Id,
+    Guid GroupId,
+    string Name,
+    int Type,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    bool IsActive,
+    DateTime CreatedAt,
+    List<CompetitionRuleResponse> Rules);
+
+/// <summary>
+/// Response with competition rule information.
+/// </summary>
+public record CompetitionRuleResponse(
+    Guid Id,
+    int ActionType,
+    int PointsAwarded,
+    string? TargetPlaceId);
+
+/// <summary>
+/// A single entry in a competition leaderboard.
+/// </summary>
+public record CompetitionLeaderboardEntryResponse(
+    string UserId,
+    string? DisplayName,
+    int Points,
+    int Rank);

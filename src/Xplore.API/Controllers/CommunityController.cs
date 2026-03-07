@@ -343,6 +343,230 @@ public class CommunityController : ControllerBase
         return Ok();
     }
 
+    // ── Visits ──
+
+    /// <summary>
+    /// Record a place as visited by the current user.
+    /// </summary>
+    [HttpPost("visits")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> VisitPlace([FromBody] VisitPlaceRequest request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var existingVisit = await _dbContext.VisitedPlaces
+            .FirstOrDefaultAsync(vp => vp.UserId == userId && vp.PlaceId == request.PlaceId);
+
+        if (existingVisit != null)
+            return Ok(); // Already visited
+
+        var visit = new VisitedPlace
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            PlaceId = request.PlaceId,
+            VisitedAt = DateTime.UtcNow
+        };
+
+        _dbContext.VisitedPlaces.Add(visit);
+
+        // Update user's count
+        var user = await _dbContext.Users.FindAsync(userId);
+        if (user != null)
+        {
+            user.VisitedPlacesCount++;
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} visited place {PlaceId}", userId, request.PlaceId);
+        return Ok();
+    }
+
+    // ── Competitions ──
+
+    /// <summary>
+    /// Create a new competition for a group. Only the admin can do this.
+    /// </summary>
+    [HttpPost("groups/{groupId:guid}/competitions")]
+    [ProducesResponseType(typeof(CompetitionResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> CreateCompetition(Guid groupId, [FromBody] CreateCompetitionRequest request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var group = await _dbContext.Groups.FindAsync(groupId);
+        if (group == null) return NotFound("Group not found.");
+
+        if (group.CreatedById != userId)
+            return StatusCode(403, "Only the group creator can create competitions.");
+
+        var competition = new Competition
+        {
+            Id = Guid.NewGuid(),
+            GroupId = groupId,
+            Name = request.Name,
+            Type = (CompetitionType)request.Type,
+            StartDate = request.StartDate,
+            EndDate = request.EndDate,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            Rules = request.Rules.Select(r => new CompetitionRule
+            {
+                Id = Guid.NewGuid(),
+                ActionType = (CompetitionActionType)r.ActionType,
+                PointsAwarded = r.PointsAwarded,
+                TargetPlaceId = r.TargetPlaceId
+            }).ToList()
+        };
+
+        _dbContext.Competitions.Add(competition);
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} created competition {CompId} in group {GroupId}", userId, competition.Id, groupId);
+
+        var response = new CompetitionResponse(
+            competition.Id, competition.GroupId, competition.Name, (int)competition.Type,
+            competition.StartDate, competition.EndDate, competition.IsActive, competition.CreatedAt,
+            competition.Rules.Select(r => new CompetitionRuleResponse(r.Id, (int)r.ActionType, r.PointsAwarded, r.TargetPlaceId)).ToList()
+        );
+
+        return CreatedAtAction(nameof(GetCompetitions), new { groupId = groupId }, response);
+    }
+
+    /// <summary>
+    /// Edit an existing competition. Only the group admin can do this.
+    /// </summary>
+    [HttpPut("groups/{groupId:guid}/competitions/{compId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpdateCompetition(Guid groupId, Guid compId, [FromBody] CreateCompetitionRequest request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var group = await _dbContext.Groups.FindAsync(groupId);
+        if (group == null) return NotFound("Group not found.");
+
+        if (group.CreatedById != userId)
+            return StatusCode(403, "Only the group creator can update competitions.");
+
+        var competition = await _dbContext.Competitions
+            .Include(c => c.Rules)
+            .FirstOrDefaultAsync(c => c.Id == compId && c.GroupId == groupId);
+
+        if (competition == null) return NotFound("Competition not found.");
+
+        competition.Name = request.Name;
+        competition.Type = (CompetitionType)request.Type;
+        competition.StartDate = request.StartDate;
+        competition.EndDate = request.EndDate;
+
+        // Replace rules
+        _dbContext.CompetitionRules.RemoveRange(competition.Rules);
+        competition.Rules = request.Rules.Select(r => new CompetitionRule
+        {
+            Id = Guid.NewGuid(),
+            CompetitionId = compId,
+            ActionType = (CompetitionActionType)r.ActionType,
+            PointsAwarded = r.PointsAwarded,
+            TargetPlaceId = r.TargetPlaceId
+        }).ToList();
+
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation("User {UserId} updated competition {CompId}", userId, compId);
+        return Ok();
+    }
+
+    /// <summary>
+    /// Get all competitions for a group.
+    /// </summary>
+    [HttpGet("groups/{groupId:guid}/competitions")]
+    [ProducesResponseType(typeof(List<CompetitionResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCompetitions(Guid groupId)
+    {
+        var competitions = await _dbContext.Competitions
+            .Where(c => c.GroupId == groupId)
+            .Include(c => c.Rules)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+
+        var responses = competitions.Select(c => new CompetitionResponse(
+            c.Id, c.GroupId, c.Name, (int)c.Type,
+            c.StartDate, c.EndDate, c.IsActive, c.CreatedAt,
+            c.Rules.Select(r => new CompetitionRuleResponse(r.Id, (int)r.ActionType, r.PointsAwarded, r.TargetPlaceId)).ToList()
+        )).ToList();
+
+        return Ok(responses);
+    }
+
+    /// <summary>
+    /// Get the leaderboard for a specific competition.
+    /// Calculates points based on rules and visits on the fly.
+    /// </summary>
+    [HttpGet("groups/{groupId:guid}/competitions/{compId:guid}/leaderboard")]
+    [ProducesResponseType(typeof(List<CompetitionLeaderboardEntryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCompetitionLeaderboard(Guid groupId, Guid compId)
+    {
+        var competition = await _dbContext.Competitions
+            .Include(c => c.Rules)
+            .FirstOrDefaultAsync(c => c.Id == compId && c.GroupId == groupId);
+
+        if (competition == null) return NotFound("Competition not found.");
+
+        var members = await _dbContext.GroupMembers
+            .Where(m => m.GroupId == groupId)
+            .Select(m => m.UserId)
+            .ToListAsync();
+
+        if (!members.Any()) return Ok(new List<CompetitionLeaderboardEntryResponse>());
+
+        var query = _dbContext.VisitedPlaces.Where(vp => members.Contains(vp.UserId));
+
+        if (competition.StartDate.HasValue)
+            query = query.Where(vp => vp.VisitedAt >= competition.StartDate.Value);
+        if (competition.EndDate.HasValue)
+            query = query.Where(vp => vp.VisitedAt <= competition.EndDate.Value);
+
+        var visits = await query.ToListAsync();
+
+        var userPoints = members.ToDictionary(m => m, m => 0);
+
+        foreach (var rule in competition.Rules)
+        {
+            if (rule.ActionType == CompetitionActionType.VisitPlace)
+            {
+                foreach (var visit in visits)
+                {
+                    if (string.IsNullOrEmpty(rule.TargetPlaceId) || rule.TargetPlaceId == visit.PlaceId)
+                    {
+                        userPoints[visit.UserId] += rule.PointsAwarded;
+                    }
+                }
+            }
+        }
+
+        var usersInfo = await _dbContext.Users
+            .Where(u => members.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.DisplayName ?? u.UserName);
+
+        var leaderboard = userPoints
+            .Select(kp => new { UserId = kp.Key, Points = kp.Value, Name = usersInfo.GetValueOrDefault(kp.Key) })
+            .OrderByDescending(x => x.Points)
+            .ThenBy(x => x.Name)
+            .Select((x, i) => new CompetitionLeaderboardEntryResponse(x.UserId, x.Name, x.Points, i + 1))
+            .ToList();
+
+        return Ok(leaderboard);
+    }
+
     // ── Leaderboard ──
 
     /// <summary>

@@ -18,6 +18,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<PoiRating> PoiRatings { get; set; }
     public DbSet<Group> Groups { get; set; }
     public DbSet<GroupMember> GroupMembers { get; set; }
+    public DbSet<VisitedPlace> VisitedPlaces { get; set; }
+    public DbSet<Competition> Competitions { get; set; }
+    public DbSet<CompetitionRule> CompetitionRules { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -84,6 +87,35 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.UserId).IsRequired().HasMaxLength(450);
             entity.HasIndex(e => new { e.GroupId, e.UserId }).IsUnique();
             entity.HasIndex(e => e.UserId);
+        });
+
+        // VisitedPlace configuration
+        modelBuilder.Entity<VisitedPlace>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.PlaceId).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => new { e.UserId, e.PlaceId }).IsUnique(); // Prevent duplicate visits to same place by same user if desired, or at least index it
+        });
+
+        // Competition configuration
+        modelBuilder.Entity<Competition>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.HasIndex(e => e.GroupId);
+            entity.HasMany(e => e.Rules)
+                  .WithOne(e => e.Competition)
+                  .HasForeignKey(e => e.CompetitionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // CompetitionRule configuration
+        modelBuilder.Entity<CompetitionRule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TargetPlaceId).HasMaxLength(100);
         });
     }
 }
