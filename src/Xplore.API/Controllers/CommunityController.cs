@@ -184,12 +184,15 @@ public class CommunityController : ControllerBase
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId)) return Unauthorized();
 
-        var groups = await _dbContext.GroupMembers
+        var groupMembers = await _dbContext.GroupMembers
             .Where(m => m.UserId == userId)
             .Include(m => m.Group)
                 .ThenInclude(g => g.Members)
-            .Select(m => MapToResponse(m.Group, m.Group.Members.Count))
             .ToListAsync();
+
+        var groups = groupMembers
+            .Select(m => MapToResponse(m.Group, m.Group.Members.Count))
+            .ToList();
 
         return Ok(groups);
     }
