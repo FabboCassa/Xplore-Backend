@@ -21,6 +21,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<VisitedPlace> VisitedPlaces { get; set; }
     public DbSet<Competition> Competitions { get; set; }
     public DbSet<CompetitionRule> CompetitionRules { get; set; }
+    public DbSet<Friendship> Friendships { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -116,6 +117,17 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.TargetPlaceId).HasMaxLength(100);
+        });
+
+        // Friendship configuration
+        modelBuilder.Entity<Friendship>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RequesterId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.AddresseeId).IsRequired().HasMaxLength(450);
+            entity.HasIndex(e => new { e.RequesterId, e.AddresseeId }).IsUnique();
+            entity.HasIndex(e => e.AddresseeId);
+            entity.HasIndex(e => e.Status);
         });
     }
 }
