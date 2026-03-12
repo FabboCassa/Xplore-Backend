@@ -7,6 +7,7 @@ obj/
 *.user
 *.suo
 *.userprefs
+skills
 
 ## --- Security (MAI committare chiavi API) ---
 appsettings.Development.json
@@ -21,6 +22,4 @@ docker-compose.override.yml
 .DS_Store
 Thumbs.db
 
-walkthrough.md
-docs/
 Xplore.API/uploads/
