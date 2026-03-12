@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Xplore.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Xplore.Infrastructure.Persistence;
 namespace Xplore.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260312092905_AddAvatarUrl")]
+    partial class AddAvatarUrl
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -463,11 +466,8 @@ namespace Xplore.Infrastructure.Persistence.Migrations
                     b.Property<int>("AccountType")
                         .HasColumnType("integer");
 
-                    b.Property<string>("AvatarContentType")
+                    b.Property<string>("AvatarUrl")
                         .HasColumnType("text");
-
-                    b.Property<byte[]>("AvatarData")
-                        .HasColumnType("bytea");
 
                     b.Property<int>("CommunityContributions")
                         .HasColumnType("integer");

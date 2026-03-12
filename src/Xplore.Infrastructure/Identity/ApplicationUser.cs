@@ -43,6 +43,16 @@ public class ApplicationUser : IdentityUser
     /// When the user was created.
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Binary data for the user's profile image.
+    /// </summary>
+    public byte[]? AvatarData { get; set; }
+
+    /// <summary>
+    /// Content type of the user's profile image (e.g., image/jpeg).
+    /// </summary>
+    public string? AvatarContentType { get; set; }
     
     /// <summary>
     /// Refresh token for JWT authentication.

@@ -253,7 +253,8 @@ public class AuthController : ControllerBase
             user.IsPremium,
             user.MuseumId,
             user.CompanyName,
-            roles.ToList()
+            roles.ToList(),
+            user.AvatarData != null
         ));
     }
 
@@ -322,6 +323,98 @@ public class AuthController : ControllerBase
 
         _logger.LogInformation("User {Email} logged in via {Provider}", email, request.Provider);
         return Ok(tokens);
+    }
+
+    // ========================
+    // Avatar Management
+    // ========================
+
+    /// <summary>
+    /// Upload or update the user's profile avatar.
+    /// </summary>
+    [HttpPost("avatar")]
+    [Authorize]
+    [ProducesResponseType(typeof(UserInfo), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UploadAvatar(IFormFile avatar)
+    {
+        if (avatar == null || avatar.Length == 0)
+            return BadRequest(new AuthResponse(false, "Nessuna immagine fornita."));
+
+        // Only allow web-safe images
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+        var extension = Path.GetExtension(avatar.FileName).ToLowerInvariant();
+        if (!allowedExtensions.Contains(extension))
+            return BadRequest(new AuthResponse(false, "Formato immagine non supportato. Usa JPG, PNG o WebP."));
+
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+            return Unauthorized();
+
+        using (var memoryStream = new MemoryStream())
+        {
+            await avatar.CopyToAsync(memoryStream);
+            user.AvatarData = memoryStream.ToArray();
+        }
+        user.AvatarContentType = avatar.ContentType;
+
+        await _userManager.UpdateAsync(user);
+
+        var roles = await _userManager.GetRolesAsync(user);
+        
+        _logger.LogInformation("User {UserId} updated their avatar in database", user.Id);
+        
+        var avatarUrl = true;
+        
+        return Ok(new UserInfo(
+            user.Id,
+            user.Email!,
+            user.DisplayName,
+            user.AccountType.ToString(),
+            user.IsPremium,
+            user.MuseumId,
+            user.CompanyName,
+            roles.ToList(),
+            avatarUrl
+        ));
+    }
+
+    /// <summary>
+    /// Delete the current user's profile avatar.
+    /// </summary>
+    [HttpDelete("avatar")]
+    [Authorize]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> DeleteAvatar()
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+            return Unauthorized();
+
+        if (user.AvatarData == null)
+            return Ok(new AuthResponse(true, "Nessun avatar da rimuovere."));
+
+        user.AvatarData = null;
+        user.AvatarContentType = null;
+        await _userManager.UpdateAsync(user);
+
+        _logger.LogInformation("User {UserId} deleted their avatar from database", user.Id);
+        return Ok(new AuthResponse(true, "Avatar rimosso con successo."));
+    }
+
+    /// <summary>
+    /// Get the user's avatar image.
+    /// </summary>
+    [HttpGet("avatar/{userId}")]
+    [AllowAnonymous]
+    [ResponseCache(Duration = 86400)] // Cache for 24 hours
+    public async Task<IActionResult> GetAvatar(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null || user.AvatarData == null)
+            return NotFound();
+
+        return File(user.AvatarData, user.AvatarContentType ?? "image/jpeg");
     }
 
     // ========================
@@ -541,7 +634,7 @@ public record LoginRequest(string Email, string Password);
 public record RefreshTokenRequest(string AccessToken, string RefreshToken);
 public record TokenResponse(string AccessToken, string RefreshToken, DateTime ExpiresAt);
 public record AuthResponse(bool Success, string Message, List<string>? Errors = null);
-public record UserInfo(string Id, string Email, string? DisplayName, string AccountType, bool IsPremium, Guid? MuseumId, string? CompanyName, List<string> Roles);
+public record UserInfo(string Id, string Email, string? DisplayName, string AccountType, bool IsPremium, Guid? MuseumId, string? CompanyName, List<string> Roles, bool HasAvatar = false);
 public record ExternalLoginRequest(string Provider, string IdToken);
 public record TwoFactorSetupResponse(string SharedKey, string QrCodeUri);
 public record TwoFactorVerifyRequest(string UserId, string Code, string Provider);
