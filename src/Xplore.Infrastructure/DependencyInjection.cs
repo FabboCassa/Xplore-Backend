@@ -1,5 +1,7 @@
 namespace Xplore.Infrastructure;
 
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -7,6 +9,7 @@ using Microsoft.SemanticKernel;
 using Qdrant.Client;
 using Xplore.Application.AI;
 using Xplore.Infrastructure.AI;
+using Xplore.Infrastructure.Notifications;
 
 /// <summary>
 /// Extension methods for registering Infrastructure layer services.
@@ -89,6 +92,32 @@ public static class DependencyInjection
 
         // Register Email Sender
         services.AddTransient<Xplore.Application.Services.IEmailSender, Xplore.Infrastructure.Services.SmtpEmailSender>();
+
+        // --- Firebase Cloud Messaging ---
+        if (FirebaseApp.DefaultInstance == null)
+        {
+            GoogleCredential? credential = null;
+
+            // Option 1: file path (preferred for local dev — avoids JSON escaping issues)
+            var firebaseJsonPath = configuration["Firebase:ServiceAccountJsonPath"];
+            if (!string.IsNullOrEmpty(firebaseJsonPath) && File.Exists(firebaseJsonPath))
+            {
+                credential = GoogleCredential.FromFile(firebaseJsonPath);
+            }
+
+            // Option 2: inline JSON (for production / environment variables)
+            if (credential == null)
+            {
+                var firebaseJson = configuration["Firebase:ServiceAccountJson"];
+                if (!string.IsNullOrEmpty(firebaseJson))
+                    credential = GoogleCredential.FromJson(firebaseJson);
+            }
+
+            if (credential != null)
+                FirebaseApp.Create(new AppOptions { Credential = credential });
+        }
+
+        services.AddScoped<IPushNotificationService, FirebasePushNotificationService>();
 
         return services;
     }

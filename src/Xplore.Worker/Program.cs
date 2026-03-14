@@ -2,6 +2,7 @@
 using Xplore.Infrastructure;
 using Xplore.Infrastructure.Persistence;
 using Xplore.Worker.Consumers;
+using Xplore.Worker.Jobs;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -23,6 +24,10 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<MuseumCreatedConsumer>();
     x.AddConsumer<DocumentUploadedConsumer>();
     x.AddConsumer<InteractionCreatedConsumer>();
+    x.AddConsumer<FriendRequestNotificationConsumer>();
+    x.AddConsumer<AchievementNotificationConsumer>();
+    x.AddConsumer<GroupInviteNotificationConsumer>();
+    x.AddConsumer<CompetitionEndedNotificationConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
@@ -42,6 +47,9 @@ builder.Services.AddMassTransit(x =>
         cfg.ConfigureEndpoints(context);
     });
 });
+
+// --- Background Jobs ---
+builder.Services.AddHostedService<CompetitionExpiryJob>();
 
 var host = builder.Build();
 host.Run();

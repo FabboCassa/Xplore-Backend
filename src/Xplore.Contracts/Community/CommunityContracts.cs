@@ -88,6 +88,17 @@ public record CreateCompetitionRequest(
     List<CompetitionRuleRequest> Rules);
 
 /// <summary>
+/// Request to update an existing competition. Includes IsActive to allow manual deactivation.
+/// </summary>
+public record UpdateCompetitionRequest(
+    string Name,
+    int Type,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    bool IsActive,
+    List<CompetitionRuleRequest> Rules);
+
+/// <summary>
 /// Request to create a new competition rule.
 /// </summary>
 public record CompetitionRuleRequest(

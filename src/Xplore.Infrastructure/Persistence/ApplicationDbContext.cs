@@ -22,6 +22,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Competition> Competitions { get; set; }
     public DbSet<CompetitionRule> CompetitionRules { get; set; }
     public DbSet<Friendship> Friendships { get; set; }
+    public DbSet<UserDeviceToken> UserDeviceTokens { get; set; }
+    public DbSet<GroupInvite> GroupInvites { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -128,6 +130,33 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.HasIndex(e => new { e.RequesterId, e.AddresseeId }).IsUnique();
             entity.HasIndex(e => e.AddresseeId);
             entity.HasIndex(e => e.Status);
+        });
+
+        // UserDeviceToken configuration
+        modelBuilder.Entity<UserDeviceToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.Token).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Platform).IsRequired().HasMaxLength(10);
+            entity.HasIndex(e => new { e.UserId, e.Token }).IsUnique();
+            entity.HasIndex(e => e.UserId);
+        });
+
+        // GroupInvite configuration
+        modelBuilder.Entity<GroupInvite>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.InviterId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.InviteeId).IsRequired().HasMaxLength(450);
+            entity.HasIndex(e => new { e.GroupId, e.InviteeId })
+                  .HasFilter("\"Status\" = 0")
+                  .IsUnique();
+            entity.HasIndex(e => e.InviteeId);
+            entity.HasOne(e => e.Group)
+                  .WithMany()
+                  .HasForeignKey(e => e.GroupId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

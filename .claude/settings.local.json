@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find c:/Users/Fabbo/XploreRepos/Xplore -name *.cs -path */Consumers/* -not -path */obj/* -not -path */bin/*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet restore:*)"
+    ]
+  }
+}

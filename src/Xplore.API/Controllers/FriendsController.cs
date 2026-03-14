@@ -1,8 +1,10 @@
+using MassTransit;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Xplore.Contracts.Friends;
+using Xplore.Contracts.Notifications;
 using Xplore.Domain.Entities;
 using Xplore.Infrastructure.Persistence;
 
@@ -17,11 +19,16 @@ namespace Xplore.API.Controllers;
 public class FriendsController : ControllerBase
 {
     private readonly ApplicationDbContext _dbContext;
+    private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<FriendsController> _logger;
 
-    public FriendsController(ApplicationDbContext dbContext, ILogger<FriendsController> logger)
+    public FriendsController(
+        ApplicationDbContext dbContext,
+        IPublishEndpoint publishEndpoint,
+        ILogger<FriendsController> logger)
     {
         _dbContext = dbContext;
+        _publishEndpoint = publishEndpoint;
         _logger = logger;
     }
 
@@ -134,6 +141,13 @@ public class FriendsController : ControllerBase
 
         _dbContext.Friendships.Add(friendship);
         await _dbContext.SaveChangesAsync();
+
+        var currentUser = await _dbContext.Users.FindAsync(userId);
+        await _publishEndpoint.Publish(new FriendRequestReceivedEvent(
+            friendship.Id,
+            userId,
+            currentUser?.DisplayName ?? "Utente",
+            request.AddresseeId));
 
         _logger.LogInformation("User {UserId} sent friend request to {AddresseeId}", userId, request.AddresseeId);
         return Ok();
