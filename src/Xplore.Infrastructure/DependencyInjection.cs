@@ -98,23 +98,55 @@ public static class DependencyInjection
         {
             GoogleCredential? credential = null;
 
-            // Option 1: file path (preferred for local dev — avoids JSON escaping issues)
+            // Option 1: file path (local dev via User Secrets or appsettings)
             var firebaseJsonPath = configuration["Firebase:ServiceAccountJsonPath"];
-            if (!string.IsNullOrEmpty(firebaseJsonPath) && File.Exists(firebaseJsonPath))
+            Console.WriteLine($"[Firebase] ServiceAccountJsonPath from config: '{firebaseJsonPath}'");
+
+            if (!string.IsNullOrEmpty(firebaseJsonPath))
             {
-                credential = GoogleCredential.FromFile(firebaseJsonPath);
+                // Try the path as-is first (absolute paths from User Secrets)
+                if (File.Exists(firebaseJsonPath))
+                {
+                    Console.WriteLine($"[Firebase] Loading credentials from: {firebaseJsonPath}");
+                    credential = GoogleCredential.FromFile(firebaseJsonPath);
+                }
+                else
+                {
+                    // Try relative to AppContext.BaseDirectory
+                    var fullPath = Path.Combine(AppContext.BaseDirectory, firebaseJsonPath);
+                    Console.WriteLine($"[Firebase] File not found at '{firebaseJsonPath}', trying: {fullPath}");
+                    if (File.Exists(fullPath))
+                    {
+                        Console.WriteLine($"[Firebase] Loading credentials from: {fullPath}");
+                        credential = GoogleCredential.FromFile(fullPath);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[Firebase] File not found at either location.");
+                    }
+                }
             }
 
-            // Option 2: inline JSON (for production / environment variables)
+            // Option 2: inline JSON (production / environment variables)
             if (credential == null)
             {
                 var firebaseJson = configuration["Firebase:ServiceAccountJson"];
                 if (!string.IsNullOrEmpty(firebaseJson))
+                {
+                    Console.WriteLine("[Firebase] Loading credentials from inline JSON.");
                     credential = GoogleCredential.FromJson(firebaseJson);
+                }
             }
 
             if (credential != null)
+            {
                 FirebaseApp.Create(new AppOptions { Credential = credential });
+                Console.WriteLine("[Firebase] SDK initialized successfully.");
+            }
+            else
+            {
+                Console.WriteLine("[Firebase] SDK NOT initialized — no credentials found. Push notifications will NOT work.");
+            }
         }
 
         services.AddScoped<IPushNotificationService, FirebasePushNotificationService>();

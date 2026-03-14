@@ -50,8 +50,14 @@ public class FirebasePushNotificationService : IPushNotificationService
             Data = data,
         };
 
-        var response = await FirebaseMessaging.DefaultInstance
-            .SendEachForMulticastAsync(message, ct);
+        var messaging = FirebaseMessaging.DefaultInstance;
+        if (messaging == null)
+        {
+            _logger.LogError("FirebaseMessaging.DefaultInstance is null — Firebase SDK not initialized. Check startup logs.");
+            return;
+        }
+
+        var response = await messaging.SendEachForMulticastAsync(message, ct);
 
         if (response.FailureCount > 0)
         {

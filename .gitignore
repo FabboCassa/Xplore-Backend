@@ -12,6 +12,7 @@ skills
 ## --- Security (MAI committare chiavi API) ---
 appsettings.Development.json
 secrets.json
+*firebase-adminsdk*.json
 
 ## --- Docker & Environment ---
 # Escludiamo i volumi dei dati (i DB locali) per non caricare GB su GitHub
