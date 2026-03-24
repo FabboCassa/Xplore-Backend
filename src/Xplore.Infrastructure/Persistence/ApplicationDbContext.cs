@@ -24,6 +24,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Friendship> Friendships { get; set; }
     public DbSet<UserDeviceToken> UserDeviceTokens { get; set; }
     public DbSet<GroupInvite> GroupInvites { get; set; }
+    public DbSet<SavedRoute> SavedRoutes { get; set; }
+    public DbSet<SavedRouteWaypoint> SavedRouteWaypoints { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -141,6 +143,31 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.Platform).IsRequired().HasMaxLength(10);
             entity.HasIndex(e => new { e.UserId, e.Token }).IsUnique();
             entity.HasIndex(e => e.UserId);
+        });
+
+        // SavedRoute configuration
+        modelBuilder.Entity<SavedRoute>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.ShareToken).IsRequired().HasMaxLength(64);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.ShareToken).IsUnique();
+            entity.HasMany(e => e.Waypoints)
+                  .WithOne(e => e.SavedRoute)
+                  .HasForeignKey(e => e.SavedRouteId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // SavedRouteWaypoint configuration
+        modelBuilder.Entity<SavedRouteWaypoint>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PlaceId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.HasIndex(e => e.SavedRouteId);
         });
 
         // GroupInvite configuration
