@@ -387,6 +387,7 @@ public class CommunityController : ControllerBase
         {
             var levelBefore = ExplorerLevel.LevelForPoints(user.TotalScore);
             user.VisitedPlacesCount++;
+            user.TotalScore += 10; // +10 points per new unique place visited
 
             await _dbContext.SaveChangesAsync();
 

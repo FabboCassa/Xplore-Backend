@@ -76,6 +76,25 @@ Invece di scrivere codice grezzo per chiamare le API di OpenAI, usiamo Semantic 
 
 ---
 
+## 5. Firebase Cloud Messaging (Il Messaggero delle Notifiche) 📱
+
+### Cos'è?
+È un servizio di **Push Notifications** fornito da Google. Serve per svegliare lo smartphone dell'utente o mostrare notifiche anche quando l'app è in background o chiusa.
+
+### Perché ci serve?
+In un'app social come Xplore, dobbiamo comunicare in tempo reale:
+- Richieste di amicizia
+- Novità dal gruppo
+- Aggiornamenti sulle Route e achievements
+Se chiedessimo all'app di "chiedere" novità ogni minuto (Polling), distruggeremmo la batteria del telefono. Firebase gestisce la connessione permanente e recapita i messaggi nel momento esatto in cui avvengono sul backend.
+
+### Dove lo trovi nel codice?
+- Progetto/Interfaccia: `src/Xplore.Infrastructure/Notifications/IPushNotificationService.cs`
+- Implementazione: `src/Xplore.Infrastructure/Notifications/FirebasePushNotificationService.cs`
+- Utilizzo: `src/Xplore.Application` (es: inviato dai Command Handlers o dai Controller quando ci sono nuove amicizie).
+
+---
+
 ## 🧪 Come Testare Ora (Modalità Mock)
 
 Ora che hai finito il credito OpenAI, abbiamo attivato la **Modalità Mock**.
