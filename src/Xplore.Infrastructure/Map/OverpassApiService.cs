@@ -28,6 +28,13 @@ public class OverpassApiService
 
     public async Task<List<OverpassPoi>> GetPoisAsync(double lat, double lon, double radiusKm)
     {
+        // Cap radius to prevent Overpass 504 Gateway Timeouts and overloaded responses
+        if (radiusKm > 2.0)
+        {
+            _logger.LogWarning("[Overpass] Capping radius from {Requested}km to 2.0km to prevent timeouts.", radiusKm);
+            radiusKm = 2.0;
+        }
+
         var radiusMeters = (int)(radiusKm * 1000);
         var latStr = lat.ToString(CultureInfo.InvariantCulture);
         var lonStr = lon.ToString(CultureInfo.InvariantCulture);
@@ -79,14 +86,17 @@ public class OverpassApiService
             // Filter out POIs without a name
             var named = pois.Where(p => p.Name != "Unknown" && !string.IsNullOrWhiteSpace(p.Name)).ToList();
 
-            // Enrich POIs using Wikipedia/Wikidata in parallel
+            // Enrich POIs using Wikipedia/Wikidata in parallel (Limit to 50 to prevent 30s timeouts)
             var enrichedPois = new List<OverpassPoi>();
-            var enrichTasks = named.Select(poi => _wikipediaApiService.EnrichPoiAsync(poi));
+            var enrichTasks = named.Take(50).Select(poi => _wikipediaApiService.EnrichPoiAsync(poi));
             var enrichedResults = await Task.WhenAll(enrichTasks);
             enrichedPois.AddRange(enrichedResults);
 
+            // Add the remaining unenriched POIs to the result
+            enrichedPois.AddRange(named.Skip(50));
+
             _logger.LogInformation("[Overpass] {Total} total → {Named} with names (filtered {Removed} unnamed), {Enriched} enriched",
-                pois.Count, named.Count, pois.Count - named.Count, enrichedPois.Count);
+                pois.Count, named.Count, pois.Count - named.Count, enrichedResults.Length);
 
             return enrichedPois;
         }
